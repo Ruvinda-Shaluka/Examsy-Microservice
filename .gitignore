@@ -1,12 +1,14 @@
 # Environment & Secrets
 .env
 *.env.local
+!.env.example
 *.properties
 !*.example.properties
-!application.properties.example
+!*.properties.example
 *.pem
 *.key
 *.p12
+client_secret*.json
 
 # Java & Maven
 target/
