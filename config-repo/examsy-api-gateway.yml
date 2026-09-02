@@ -1,0 +1,71 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: examsy-api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:5173"
+              - "http://localhost:3000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+              - PATCH
+            allowedHeaders: "*"
+            allowCredentials: true
+
+      routes:
+        # 1. Authentication & OAuth2 Service
+        - id: auth-service
+          uri: lb://EXAMSY-AUTH-SERVICE
+          predicates:
+            - Path=/api/v1/auth/**, /oauth2/**, /login/oauth2/**
+
+        # 2. User Profile Service (Admin, Teacher, Student)
+        - id: profile-service
+          uri: lb://EXAMSY-PROFILE-SERVICE
+          predicates:
+            - Path=/api/v1/students/**, /api/v1/teachers/**, /api/v1/admins/**
+
+        # 3. Class & Course Management Service
+        - id: class-service
+          uri: lb://EXAMSY-CLASS-SERVICE
+          predicates:
+            - Path=/api/v1/teacher/dashboard/classes/**, /api/v1/teacher/classes/**, /api/v1/student/dashboard/classes/**
+
+        # 4. Grading & AI Service (Evaluations & Approvals)
+        # Higher precedence route for grading subpaths under teacher/exams
+        - id: grading-service
+          uri: lb://EXAMSY-GRADING-SERVICE
+          predicates:
+            - Path=/api/v1/teacher/exams/*/grade/**, /api/v1/teacher/exams/pending-gradings/**
+
+        # 5. Exam & Proctoring Service
+        - id: exam-service
+          uri: lb://EXAMSY-EXAM-SERVICE
+          predicates:
+            - Path=/api/v1/teacher/exams/**, /api/v1/student/exams/**, /api/v1/mock-exams/**, /api/v1/teacher/dashboard/calendar/**, /api/v1/student/dashboard/calendar/**
+
+        # 6. Notification Service
+        - id: notification-service
+          uri: lb://EXAMSY-NOTIFICATION-SERVICE
+          predicates:
+            - Path=/api/v1/notifications/**
+
+        # 7. Admin Moderation & Reports Service
+        - id: admin-service
+          uri: lb://EXAMSY-ADMIN-SERVICE
+          predicates:
+            - Path=/api/v1/admin/**
