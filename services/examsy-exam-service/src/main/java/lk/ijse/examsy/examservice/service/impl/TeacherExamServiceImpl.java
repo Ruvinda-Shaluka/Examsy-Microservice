@@ -165,24 +165,100 @@ public class TeacherExamServiceImpl implements TeacherExamService {
     @Transactional(readOnly = true)
     @Override
     public List<LiveStudentMonitorDTO> getLiveMonitorData(Integer examId, String teacherUsername) {
-        return Collections.emptyList(); // Will be committed next
+        examRepository.findByIdAndTeacherUsername(examId, teacherUsername)
+                .orElseThrow(() -> new RuntimeException("Exam not found or unauthorized"));
+
+        List<ExamSubmission> submissions = examSubmissionRepository.findByExamId(examId);
+
+        return submissions.stream().map(sub -> LiveStudentMonitorDTO.builder()
+                .studentId(sub.getStudentId())
+                .studentName(sub.getStudentName() != null ? sub.getStudentName() : sub.getStudentUsername())
+                .studentUsername(sub.getStudentUsername())
+                .submissionStatus(sub.getStatus())
+                .proctoringStatus(sub.getProctoringStatus())
+                .suspiciousEvents(sub.getSuspiciousEventCount())
+                .timeAwaySeconds(sub.getTotalTimeAwaySeconds())
+                .lastAction(sub.getLastKnownAction())
+                .startedAt(sub.getActualStartTime())
+                .build()
+        ).collect(Collectors.toList());
     }
 
     @Transactional
     @Override
     public void broadcastToExam(Integer examId, String teacherUsername, String message) {
-        // Will be committed next
+        examRepository.findByIdAndTeacherUsername(examId, teacherUsername)
+                .orElseThrow(() -> new RuntimeException("Exam not found or unauthorized"));
+
+        log.info("Broadcast dispatched to exam ID {} by teacher '{}': {}", examId, teacherUsername, message);
     }
 
     @Transactional
     @Override
     public void warnStudent(Integer examId, Integer studentId, String teacherUsername, String message) {
-        // Will be committed next
+        examRepository.findByIdAndTeacherUsername(examId, teacherUsername)
+                .orElseThrow(() -> new RuntimeException("Exam not found or unauthorized"));
+
+        log.warn("Teacher '{}' sent warning to student ID {} during exam ID {}: {}",
+                teacherUsername, studentId, examId, message);
     }
 
     @Transactional(readOnly = true)
     @Override
     public ExamAnalyticsDTO getExamAnalytics(Integer examId, String teacherUsername) {
-        return null; // Will be committed next
+        Exam exam = examRepository.findByIdAndTeacherUsername(examId, teacherUsername)
+                .orElseThrow(() -> new RuntimeException("Exam not found or unauthorized"));
+
+        List<ExamSubmission> completedSubs = examSubmissionRepository.findByExamIdAndStatus(examId, "SUBMITTED");
+
+        if (completedSubs.isEmpty()) {
+            return ExamAnalyticsDTO.builder()
+                    .examId(examId)
+                    .title(exam.getTitle())
+                    .totalParticipants(0)
+                    .averageScore(BigDecimal.ZERO)
+                    .highestScore(BigDecimal.ZERO)
+                    .lowestScore(BigDecimal.ZERO)
+                    .passingRate(BigDecimal.ZERO)
+                    .gradeDistribution(Collections.emptyMap())
+                    .build();
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal highest = BigDecimal.ZERO;
+        BigDecimal lowest = BigDecimal.valueOf(1000);
+        int passCount = 0;
+        Map<String, Long> gradeDist = new HashMap<>();
+
+        for (ExamSubmission sub : completedSubs) {
+            BigDecimal score = sub.getFinalScore() != null ? sub.getFinalScore() :
+                    (sub.getCalculatedScore() != null ? sub.getCalculatedScore() : BigDecimal.ZERO);
+
+            total = total.add(score);
+            if (score.compareTo(highest) > 0) highest = score;
+            if (score.compareTo(lowest) < 0) lowest = score;
+
+            if (exam.getMaxScore() != null && exam.getMaxScore().compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal pct = score.divide(exam.getMaxScore(), 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
+                if (pct.compareTo(BigDecimal.valueOf(50)) >= 0) passCount++;
+            }
+
+            String grade = sub.getAwardedGradeLetter() != null ? sub.getAwardedGradeLetter() : "N/A";
+            gradeDist.put(grade, gradeDist.getOrDefault(grade, 0L) + 1);
+        }
+
+        BigDecimal avg = total.divide(BigDecimal.valueOf(completedSubs.size()), 2, RoundingMode.HALF_UP);
+        BigDecimal passRate = BigDecimal.valueOf(passCount * 100.0 / completedSubs.size()).setScale(2, RoundingMode.HALF_UP);
+
+        return ExamAnalyticsDTO.builder()
+                .examId(examId)
+                .title(exam.getTitle())
+                .totalParticipants(completedSubs.size())
+                .averageScore(avg)
+                .highestScore(highest)
+                .lowestScore(lowest)
+                .passingRate(passRate)
+                .gradeDistribution(gradeDist)
+                .build();
     }
 }
