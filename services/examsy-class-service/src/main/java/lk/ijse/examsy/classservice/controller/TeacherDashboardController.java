@@ -1,0 +1,55 @@
+package lk.ijse.examsy.classservice.controller;
+
+import jakarta.validation.Valid;
+import lk.ijse.examsy.classservice.dto.APIResponse;
+import lk.ijse.examsy.classservice.dto.CourseCreateDTO;
+import lk.ijse.examsy.classservice.dto.TeacherClassCardDTO;
+import lk.ijse.examsy.classservice.service.TeacherDashboardService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/teacher/dashboard")
+@RequiredArgsConstructor
+@Validated
+public class TeacherDashboardController {
+
+    private final TeacherDashboardService dashboardService;
+
+    @GetMapping("/classes")
+    public ResponseEntity<APIResponse<List<TeacherClassCardDTO>>> getMyClasses(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        List<TeacherClassCardDTO> classes = dashboardService.getMyClasses(userDetails.getUsername());
+        return ResponseEntity.ok(new APIResponse<>(200, "Classes fetched successfully", classes));
+    }
+
+    @PostMapping("/classes")
+    public ResponseEntity<APIResponse<TeacherClassCardDTO>> createClass(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody CourseCreateDTO dto) {
+        TeacherClassCardDTO newClass = dashboardService.createClass(userDetails.getUsername(), dto);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new APIResponse<>(201, "Class created successfully", newClass));
+    }
+
+    @DeleteMapping("/classes/{courseId}")
+    public ResponseEntity<APIResponse<String>> deleteClass(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Integer courseId) {
+        dashboardService.deleteClass(userDetails.getUsername(), courseId);
+        return ResponseEntity.ok(new APIResponse<>(200, "Class deleted successfully", null));
+    }
+
+    @PostMapping("/rotate-codes")
+    public ResponseEntity<APIResponse<Void>> rotateCodes(@AuthenticationPrincipal UserDetails user) {
+        dashboardService.rotateExpiredClassCodes(user.getUsername());
+        return ResponseEntity.ok(new APIResponse<>(200, "Codes rotated if expired", null));
+    }
+}
