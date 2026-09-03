@@ -196,7 +196,89 @@ public class StudentExamServiceImpl implements StudentExamService {
     @Transactional(readOnly = true)
     @Override
     public VaultExamsResponseDTO getVaultExams(String studentUsername, Integer classId) {
-        return null; // Next commit
+        List<Exam> exams = examRepository.findByCourseId(classId);
+
+        List<VaultExamItemDTO> completedExams = new ArrayList<>();
+        for (Exam exam : exams) {
+            Optional<ExamSubmission> optSub = examSubmissionRepository.findByExamIdAndStudentUsername(exam.getId(), studentUsername);
+            if (optSub.isPresent()) {
+                ExamSubmission sub = optSub.get();
+                if ("SUBMITTED".equals(sub.getStatus())) {
+                    BigDecimal score = sub.getFinalScore() != null ? sub.getFinalScore() :
+                            (sub.getCalculatedScore() != null ? sub.getCalculatedScore() : BigDecimal.ZERO);
+
+                    completedExams.add(VaultExamItemDTO.builder()
+                            .examId(exam.getId())
+                            .title(exam.getTitle())
+                            .examType(exam.getExamType())
+                            .score(score)
+                            .maxScore(exam.getMaxScore())
+                            .gradeLetter(sub.getAwardedGradeLetter())
+                            .completedAt(sub.getSubmittedAt())
+                            .feedback(sub.getPdfFeedback())
+                            .build());
+                }
+            }
+        }
+
+        return VaultExamsResponseDTO.builder()
+                .classId(classId)
+                .completedExams(completedExams)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public StudentAnalyticsDTO getStudentAnalytics(String studentUsername) {
+        List<ExamSubmission> submissions = examSubmissionRepository.findByStudentUsername(studentUsername);
+        List<ExamSubmission> completed = submissions.stream()
+                .filter(s -> "SUBMITTED".equals(s.getStatus()))
+                .collect(Collectors.toList());
+
+        if (completed.isEmpty()) {
+            return StudentAnalyticsDTO.builder()
+                    .totalExamsTaken(0)
+                    .averageScorePercentage(BigDecimal.ZERO)
+                    .totalHonorsReceived(0)
+                    .suspiciousEventsCount(0)
+                    .integrityScore(BigDecimal.valueOf(100))
+                    .build();
+        }
+
+        BigDecimal totalPercentage = BigDecimal.ZERO;
+        int honorsCount = 0;
+        int totalSuspicious = 0;
+
+        for (ExamSubmission sub : completed) {
+            BigDecimal score = sub.getFinalScore() != null ? sub.getFinalScore() :
+                    (sub.getCalculatedScore() != null ? sub.getCalculatedScore() : BigDecimal.ZERO);
+            BigDecimal max = sub.getExam().getMaxScore() != null ? sub.getExam().getMaxScore() : BigDecimal.valueOf(100);
+
+            if (max.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal pct = score.divide(max, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
+                totalPercentage = totalPercentage.add(pct);
+                if (pct.compareTo(BigDecimal.valueOf(80)) >= 0) {
+                    honorsCount++;
+                }
+            }
+
+            if (sub.getSuspiciousEventCount() != null) {
+                totalSuspicious += sub.getSuspiciousEventCount();
+            }
+        }
+
+        BigDecimal avgPct = totalPercentage.divide(BigDecimal.valueOf(completed.size()), 2, RoundingMode.HALF_UP);
+        BigDecimal penalty = BigDecimal.valueOf(totalSuspicious * 5L);
+        BigDecimal integrity = BigDecimal.valueOf(100).subtract(penalty);
+        if (integrity.compareTo(BigDecimal.ZERO) < 0) integrity = BigDecimal.ZERO;
+
+        return StudentAnalyticsDTO.builder()
+                .totalExamsTaken(completed.size())
+                .averageScorePercentage(avgPct)
+                .totalHonorsReceived(honorsCount)
+                .suspiciousEventsCount(totalSuspicious)
+                .integrityScore(integrity)
+                .build();
     }
 
     @Transactional
@@ -269,10 +351,5 @@ public class StudentExamServiceImpl implements StudentExamService {
         log.warn("Security violation '{}' logged silently for student '{}' on exam ID {}",
                 dto.getViolationType(), studentUsername, dto.getExamId());
     }
-
-    @Transactional(readOnly = true)
-    @Override
-    public StudentAnalyticsDTO getStudentAnalytics(String studentUsername) {
-        return null; // Next commit
-    }
 }
+
