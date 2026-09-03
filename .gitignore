@@ -5,6 +5,8 @@
 *.properties
 !*.example.properties
 !*.properties.example
+!config-repo/**
+!**/src/main/resources/*.properties
 *.pem
 *.key
 *.p12
