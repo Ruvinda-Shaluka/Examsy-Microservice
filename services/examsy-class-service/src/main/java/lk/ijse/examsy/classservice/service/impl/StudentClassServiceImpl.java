@@ -95,7 +95,45 @@ public class StudentClassServiceImpl implements StudentClassService {
     @Transactional
     @Override
     public String joinClass(String username, JoinClassDTO dto) {
-        // Will be implemented in the subsequent commit
-        return null;
+        String link = dto.getInviteLink().trim();
+        Integer courseId;
+        String extractedCode;
+
+        try {
+            String[] parts = link.split("/join/");
+            if (parts.length < 2) throw new IllegalArgumentException();
+            String[] params = parts[1].split("/");
+            if (params.length < 2) throw new IllegalArgumentException();
+            courseId = Integer.parseInt(params[0]);
+            extractedCode = params[1].trim();
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid invite link format.");
+        }
+
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Class not found."));
+
+        if (course.getClassCode() == null || !course.getClassCode().equals(extractedCode)) {
+            throw new RuntimeException("Invalid or expired invite link.");
+        }
+
+        if (enrollmentRepository.existsByCourseIdAndStudentUsername(courseId, username)) {
+            throw new RuntimeException("You are already enrolled in this class.");
+        }
+
+        if (classJoinRequestRepo.existsByCourseIdAndStudentUsername(courseId, username)) {
+            throw new RuntimeException("You have already sent a request to join this class. Please wait for the instructor to approve it.");
+        }
+
+        ClassJoinRequest request = ClassJoinRequest.builder()
+                .course(course)
+                .studentUsername(username)
+                .studentName(username)
+                .status("PENDING")
+                .build();
+        classJoinRequestRepo.save(request);
+        log.info("Student '{}' submitted join request for class ID {}", username, courseId);
+
+        return "Request sent successfully! You will be notified once the instructor approves your request.";
     }
 }
