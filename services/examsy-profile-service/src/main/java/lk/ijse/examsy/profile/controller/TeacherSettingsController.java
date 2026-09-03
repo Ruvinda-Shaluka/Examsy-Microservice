@@ -1,7 +1,7 @@
 package lk.ijse.examsy.profile.controller;
 
 import jakarta.validation.Valid;
-import lk.ijse.examsy.profile.dto.APIResponse;
+import lk.ijse.examsy.common.dto.APIResponse;
 import lk.ijse.examsy.profile.dto.TeacherDTO;
 import lk.ijse.examsy.profile.service.TeacherProfileService;
 import lombok.RequiredArgsConstructor;

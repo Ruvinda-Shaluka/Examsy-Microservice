@@ -25,7 +25,30 @@ public class JwtTokenProvider {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
+    @Value("${jwt.expiration:86400000}")
+    private long expiration;
+
     private Key signingKey;
+
+    public String generateToken(String username, String role, Integer userId) {
+        return Jwts.builder()
+                .setSubject(username)
+                .claim("role", role)
+                .claim("userId", userId)
+                .setIssuedAt(new java.util.Date())
+                .setExpiration(new java.util.Date(System.currentTimeMillis() + expiration))
+                .signWith(signingKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public String generateToken(String username) {
+        return Jwts.builder()
+                .setSubject(username)
+                .setIssuedAt(new java.util.Date())
+                .setExpiration(new java.util.Date(System.currentTimeMillis() + expiration))
+                .signWith(signingKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
 
     @PostConstruct
     public void validateAndInitializeKey() {

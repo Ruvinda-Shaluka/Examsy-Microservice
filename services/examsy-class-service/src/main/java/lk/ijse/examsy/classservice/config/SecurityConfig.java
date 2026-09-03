@@ -1,6 +1,6 @@
 package lk.ijse.examsy.classservice.config;
 
-import lk.ijse.examsy.classservice.security.JwtAuthFilter;
+import lk.ijse.examsy.common.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

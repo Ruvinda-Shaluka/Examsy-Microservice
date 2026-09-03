@@ -3,6 +3,7 @@ package lk.ijse.examsy.classservice.controller;
 import jakarta.validation.Valid;
 import lk.ijse.examsy.classservice.dto.*;
 import lk.ijse.examsy.classservice.service.TeacherClassService;
+import lk.ijse.examsy.common.dto.APIResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
