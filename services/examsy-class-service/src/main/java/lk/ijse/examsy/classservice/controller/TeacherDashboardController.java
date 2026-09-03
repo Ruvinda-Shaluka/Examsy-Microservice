@@ -1,10 +1,10 @@
 package lk.ijse.examsy.classservice.controller;
 
 import jakarta.validation.Valid;
-import lk.ijse.examsy.classservice.dto.APIResponse;
 import lk.ijse.examsy.classservice.dto.CourseCreateDTO;
 import lk.ijse.examsy.classservice.dto.TeacherClassCardDTO;
 import lk.ijse.examsy.classservice.service.TeacherDashboardService;
+import lk.ijse.examsy.common.dto.APIResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

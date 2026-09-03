@@ -1,7 +1,7 @@
 package lk.ijse.examsy.classservice.controller;
 
 import jakarta.validation.Valid;
-import lk.ijse.examsy.classservice.dto.APIResponse;
+import lk.ijse.examsy.common.dto.APIResponse;
 import lk.ijse.examsy.classservice.dto.ClassPeopleDTO;
 import lk.ijse.examsy.classservice.dto.JoinClassDTO;
 import lk.ijse.examsy.classservice.dto.StudentClassCardDTO;
