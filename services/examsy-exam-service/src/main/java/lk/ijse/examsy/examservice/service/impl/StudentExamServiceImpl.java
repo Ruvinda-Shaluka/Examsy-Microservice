@@ -202,13 +202,72 @@ public class StudentExamServiceImpl implements StudentExamService {
     @Transactional
     @Override
     public ProctoringStatsDTO logProctoringEvent(Integer examId, String studentUsername, ProctoringLogDTO logDTO) {
-        return null; // Next commit
+        ExamSubmission submission = examSubmissionRepository.findByExamIdAndStudentUsername(examId, studentUsername)
+                .orElseThrow(() -> new RuntimeException("No active attempt found for this exam"));
+
+        ProctoringLog logEntry = ProctoringLog.builder()
+                .examSubmission(submission)
+                .eventType(logDTO.getEventType())
+                .durationSeconds(logDTO.getDurationSeconds() != null ? logDTO.getDurationSeconds() : 0)
+                .build();
+
+        proctoringLogRepository.save(logEntry);
+
+        // Update telemetry counters
+        int suspicious = submission.getSuspiciousEventCount() != null ? submission.getSuspiciousEventCount() + 1 : 1;
+        int timeAway = submission.getTotalTimeAwaySeconds() != null ? submission.getTotalTimeAwaySeconds() : 0;
+        if (logDTO.getDurationSeconds() != null) {
+            timeAway += logDTO.getDurationSeconds();
+        }
+
+        submission.setSuspiciousEventCount(suspicious);
+        submission.setTotalTimeAwaySeconds(timeAway);
+        submission.setLastKnownAction(logDTO.getEventType());
+
+        // Dynamic proctoring severity classification
+        if (suspicious >= 5 || timeAway >= 60) {
+            submission.setProctoringStatus("SUSPICIOUS");
+        } else if (suspicious >= 2 || timeAway >= 20) {
+            submission.setProctoringStatus("WARNING");
+        } else {
+            submission.setProctoringStatus("SECURE");
+        }
+
+        ExamSubmission updated = examSubmissionRepository.save(submission);
+        log.warn("Proctoring event '{}' recorded for student '{}' on exam ID {}. Status: {}",
+                logDTO.getEventType(), studentUsername, examId, updated.getProctoringStatus());
+
+        return ProctoringStatsDTO.builder()
+                .submissionId(updated.getId())
+                .suspiciousEvents(updated.getSuspiciousEventCount())
+                .totalTimeAwaySeconds(updated.getTotalTimeAwaySeconds())
+                .proctoringStatus(updated.getProctoringStatus())
+                .build();
     }
 
     @Transactional
     @Override
     public void logSecurityViolation(String studentUsername, ProctoringDTO dto) {
-        // Next commit
+        ExamSubmission submission = examSubmissionRepository.findByExamIdAndStudentUsername(dto.getExamId(), studentUsername)
+                .orElseThrow(() -> new RuntimeException("No active attempt found for this exam"));
+
+        ProctoringLog logEntry = ProctoringLog.builder()
+                .examSubmission(submission)
+                .eventType(dto.getViolationType())
+                .durationSeconds(dto.getDurationSeconds() != null ? dto.getDurationSeconds() : 0)
+                .build();
+
+        proctoringLogRepository.save(logEntry);
+
+        int suspicious = submission.getSuspiciousEventCount() != null ? submission.getSuspiciousEventCount() + 1 : 1;
+        submission.setSuspiciousEventCount(suspicious);
+        submission.setLastKnownAction("VIOLATION: " + dto.getViolationType());
+        if (suspicious >= 3) {
+            submission.setProctoringStatus("WARNING");
+        }
+        examSubmissionRepository.save(submission);
+        log.warn("Security violation '{}' logged silently for student '{}' on exam ID {}",
+                dto.getViolationType(), studentUsername, dto.getExamId());
     }
 
     @Transactional(readOnly = true)
