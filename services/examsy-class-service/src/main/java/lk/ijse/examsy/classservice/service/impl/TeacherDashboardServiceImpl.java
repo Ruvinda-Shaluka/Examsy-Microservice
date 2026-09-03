@@ -86,6 +86,20 @@ public class TeacherDashboardServiceImpl implements TeacherDashboardService {
     @Transactional
     @Override
     public void rotateExpiredClassCodes(String username) {
-        // Will be implemented in the subsequent commit
+        List<Course> courses = courseRepository.findByTeacherUsername(username);
+        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
+
+        for (Course course : courses) {
+            LocalDateTime lastUpdated = course.getClassCodeUpdatedAt() != null ?
+                    course.getClassCodeUpdatedAt() : course.getCreatedAt();
+
+            if (lastUpdated != null && lastUpdated.isBefore(sevenDaysAgo)) {
+                String newCode = UUID.randomUUID().toString().substring(0, 7).toUpperCase();
+                course.setClassCode(newCode);
+                course.setClassCodeUpdatedAt(LocalDateTime.now());
+                courseRepository.save(course);
+                log.info("Rotated expired class code for course ID {} to {}", course.getId(), newCode);
+            }
+        }
     }
 }
