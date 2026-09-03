@@ -103,7 +103,94 @@ public class StudentExamServiceImpl implements StudentExamService {
     @Transactional
     @Override
     public ExamResultDTO submitExam(String studentUsername, Integer examId, ExamSubmitDTO dto) {
-        return null; // Next commit
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new RuntimeException("Exam not found"));
+
+        ExamSubmission submission = examSubmissionRepository.findByExamIdAndStudentUsername(examId, studentUsername)
+                .orElseThrow(() -> new RuntimeException("No active attempt found for this exam"));
+
+        if ("SUBMITTED".equals(submission.getStatus())) {
+            throw new IllegalStateException("Exam is already submitted.");
+        }
+
+        BigDecimal calculatedScore = BigDecimal.ZERO;
+        List<Question> questions = questionRepository.findByExamIdOrderByOrderIndexAsc(examId);
+        Map<Integer, Question> questionMap = questions.stream().collect(Collectors.toMap(Question::getId, q -> q));
+
+        if (dto.getAnswers() != null) {
+            for (AnswerSubmitDTO aDto : dto.getAnswers()) {
+                Question question = questionMap.get(aDto.getQuestionId());
+                if (question == null) continue;
+
+                BigDecimal pointsAwarded = BigDecimal.ZERO;
+
+                if ("MCQ".equalsIgnoreCase(question.getQuestionType()) && aDto.getSelectedOptionId() != null) {
+                    List<QuestionOption> options = questionOptionRepository.findByQuestionId(question.getId());
+                    boolean correct = options.stream().anyMatch(opt ->
+                            opt.getId().equals(aDto.getSelectedOptionId()) && Boolean.TRUE.equals(opt.getIsCorrect()));
+                    if (correct) {
+                        pointsAwarded = question.getPoints() != null ? question.getPoints() : BigDecimal.ZERO;
+                        calculatedScore = calculatedScore.add(pointsAwarded);
+                    }
+                }
+
+                SubmissionAnswer answer = SubmissionAnswer.builder()
+                        .submission(submission)
+                        .question(question)
+                        .selectedOptionId(aDto.getSelectedOptionId())
+                        .answerText(aDto.getTextAnswer())
+                        .scoreAwarded(pointsAwarded)
+                        .build();
+
+                submissionAnswerRepository.save(answer);
+            }
+        }
+
+        submission.setStatus("SUBMITTED");
+        submission.setSubmittedAt(LocalDateTime.now());
+        submission.setCalculatedScore(calculatedScore);
+        if (dto.getPdfSubmissionUrl() != null) {
+            submission.setPdfSubmissionUrl(dto.getPdfSubmissionUrl());
+        }
+
+        // Calculate Grade Letter based on max score
+        String grade = "F";
+        if (exam.getMaxScore() != null && exam.getMaxScore().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal percentage = calculatedScore.divide(exam.getMaxScore(), 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
+            if (percentage.compareTo(BigDecimal.valueOf(85)) >= 0) grade = "A+";
+            else if (percentage.compareTo(BigDecimal.valueOf(75)) >= 0) grade = "A";
+            else if (percentage.compareTo(BigDecimal.valueOf(65)) >= 0) grade = "B";
+            else if (percentage.compareTo(BigDecimal.valueOf(50)) >= 0) grade = "C";
+            else if (percentage.compareTo(BigDecimal.valueOf(40)) >= 0) grade = "D";
+        }
+        submission.setAwardedGradeLetter(grade);
+        ExamSubmission savedSubmission = examSubmissionRepository.save(submission);
+
+        // Event-driven decoupling: Publish event to Kafka for Phase 9 AI Grading Service
+        ExamSubmittedEvent event = ExamSubmittedEvent.builder()
+                .submissionId(savedSubmission.getId())
+                .examId(exam.getId())
+                .studentId(savedSubmission.getStudentId())
+                .studentUsername(studentUsername)
+                .examType(exam.getExamType())
+                .pdfSubmissionUrl(savedSubmission.getPdfSubmissionUrl())
+                .submittedAt(savedSubmission.getSubmittedAt())
+                .build();
+
+        examEventProducer.publishExamSubmitted(event);
+        log.info("Exam submission completed for student '{}' on exam ID {}. Score: {}",
+                studentUsername, examId, calculatedScore);
+
+        return ExamResultDTO.builder()
+                .submissionId(savedSubmission.getId())
+                .examId(exam.getId())
+                .status("SUBMITTED")
+                .calculatedScore(calculatedScore)
+                .maxScore(exam.getMaxScore())
+                .awardedGradeLetter(grade)
+                .submittedAt(savedSubmission.getSubmittedAt())
+                .message("Exam submitted successfully.")
+                .build();
     }
 
     @Transactional(readOnly = true)
