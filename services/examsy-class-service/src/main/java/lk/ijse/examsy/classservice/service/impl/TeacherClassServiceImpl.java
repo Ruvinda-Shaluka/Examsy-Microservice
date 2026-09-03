@@ -187,24 +187,89 @@ public class TeacherClassServiceImpl implements TeacherClassService {
     @Transactional
     @Override
     public void inviteStudent(String teacherUsername, Integer classId, InviteStudentDTO dto) {
-        // Will be implemented in next commit
+        Course course = courseRepository.findByIdAndTeacherUsername(classId, teacherUsername)
+                .orElseThrow(() -> new RuntimeException("Class not found or unauthorized"));
+
+        String activeClassCode = course.getClassCode();
+        String inviteLink = "https://examsy.com/join/" + classId + "/" + activeClassCode;
+
+        try {
+            jakarta.mail.internet.MimeMessage message = mailSender.createMimeMessage();
+            org.springframework.mail.javamail.MimeMessageHelper helper =
+                    new org.springframework.mail.javamail.MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(new jakarta.mail.internet.InternetAddress("noreply@examsy.com", course.getTeacherName() + " (Examsy)"));
+            helper.setTo(dto.getEmail());
+            helper.setSubject("Invitation to join class: " + course.getName());
+
+            String emailBody = "Hello,\n\n" +
+                    "You have been invited by " + course.getTeacherName() +
+                    " to join the class: " + course.getName() + ".\n\n" +
+                    "Please copy the link below and paste it in your Examsy Student Dashboard to join:\n\n" +
+                    inviteLink + "\n\n" +
+                    "Welcome to the class!";
+
+            helper.setText(emailBody);
+            mailSender.send(message);
+            log.info("Invitation email sent to {} for class '{}'", dto.getEmail(), course.getName());
+        } catch (Exception e) {
+            log.warn("Email dispatch error (skipped in local/mock): {}", e.getMessage());
+        }
     }
 
     @Transactional(readOnly = true)
     @Override
     public List<JoinRequestDTO> getPendingJoinRequests(String teacherUsername, Integer classId) {
-        return Collections.emptyList();
+        courseRepository.findByIdAndTeacherUsername(classId, teacherUsername)
+                .orElseThrow(() -> new RuntimeException("Unauthorized"));
+
+        return classJoinRequestRepo.findByCourseIdAndStatusOrderByRequestedAtAsc(classId, "PENDING")
+                .stream().map(req -> JoinRequestDTO.builder()
+                        .requestId(req.getId())
+                        .studentId(req.getStudentId())
+                        .studentName(req.getStudentName())
+                        .studentEmail(req.getStudentEmail())
+                        .initial(req.getStudentName() != null && !req.getStudentName().isEmpty() ?
+                                req.getStudentName().substring(0, 1).toUpperCase() : "S")
+                        .requestedAt(req.getRequestedAt())
+                        .build()
+                ).collect(Collectors.toList());
     }
 
     @Transactional
     @Override
     public void approveJoinRequest(String teacherUsername, Integer requestId) {
-        // Will be implemented in next commit
+        ClassJoinRequest request = classJoinRequestRepo.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Request not found"));
+
+        if (!request.getCourse().getTeacherUsername().equals(teacherUsername)) {
+            throw new RuntimeException("Unauthorized");
+        }
+
+        ClassEnrollment enrollment = ClassEnrollment.builder()
+                .course(request.getCourse())
+                .studentId(request.getStudentId())
+                .studentUsername(request.getStudentUsername())
+                .studentName(request.getStudentName())
+                .studentEmail(request.getStudentEmail())
+                .build();
+        classEnrollmentRepo.save(enrollment);
+
+        classJoinRequestRepo.delete(request);
+        log.info("Join request ID {} approved by teacher '{}' for student '{}'", requestId, teacherUsername, request.getStudentUsername());
     }
 
     @Transactional
     @Override
     public void rejectJoinRequest(String teacherUsername, Integer requestId) {
-        // Will be implemented in next commit
+        ClassJoinRequest request = classJoinRequestRepo.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Request not found"));
+
+        if (!request.getCourse().getTeacherUsername().equals(teacherUsername)) {
+            throw new RuntimeException("Unauthorized");
+        }
+
+        classJoinRequestRepo.delete(request);
+        log.info("Join request ID {} rejected by teacher '{}' for student '{}'", requestId, teacherUsername, request.getStudentUsername());
     }
 }
