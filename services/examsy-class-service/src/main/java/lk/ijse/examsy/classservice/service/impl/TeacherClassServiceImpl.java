@@ -139,13 +139,49 @@ public class TeacherClassServiceImpl implements TeacherClassService {
     @Transactional(readOnly = true)
     @Override
     public ClassPeopleDTO getClassPeople(Integer classId) {
-        return null; // Will be implemented in next commit
+        Course course = courseRepository.findById(classId)
+                .orElseThrow(() -> new RuntimeException("Class not found"));
+
+        PersonDTO teacherDto = PersonDTO.builder()
+                .id(course.getTeacherId())
+                .name(course.getTeacherName())
+                .email(course.getTeacherUsername())
+                .initial(course.getTeacherName() != null && !course.getTeacherName().isEmpty() ?
+                        course.getTeacherName().substring(0, 1).toUpperCase() : "T")
+                .role("Teacher")
+                .profileImageUrl(null)
+                .build();
+
+        List<ClassEnrollment> enrollments = classEnrollmentRepo.findByCourseId(classId);
+
+        List<PersonDTO> studentDtos = enrollments.stream().map(enrollment -> PersonDTO.builder()
+                .id(enrollment.getStudentId())
+                .name(enrollment.getStudentName())
+                .email(enrollment.getStudentEmail() != null ? enrollment.getStudentEmail() : enrollment.getStudentUsername())
+                .initial(enrollment.getStudentName() != null && !enrollment.getStudentName().isEmpty() ?
+                        enrollment.getStudentName().substring(0, 1).toUpperCase() : "S")
+                .role("Student")
+                .profileImageUrl(enrollment.getStudentProfilePictureUrl())
+                .build()
+        ).collect(Collectors.toList());
+
+        return ClassPeopleDTO.builder()
+                .teachers(List.of(teacherDto))
+                .students(studentDtos)
+                .build();
     }
 
     @Transactional
     @Override
     public void removeStudentFromClass(String teacherUsername, Integer classId, Integer studentId) {
-        // Will be implemented in next commit
+        courseRepository.findByIdAndTeacherUsername(classId, teacherUsername)
+                .orElseThrow(() -> new RuntimeException("Class not found or unauthorized"));
+
+        ClassEnrollment enrollment = classEnrollmentRepo.findByCourseIdAndStudentId(classId, studentId)
+                .orElseThrow(() -> new RuntimeException("Student is not enrolled in this class"));
+
+        classEnrollmentRepo.delete(enrollment);
+        log.info("Student ID {} removed from class ID {} by teacher '{}'", studentId, classId, teacherUsername);
     }
 
     @Transactional
