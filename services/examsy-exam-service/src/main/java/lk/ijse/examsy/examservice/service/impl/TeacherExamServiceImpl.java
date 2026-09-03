@@ -81,25 +81,85 @@ public class TeacherExamServiceImpl implements TeacherExamService {
     @Transactional(readOnly = true)
     @Override
     public List<ExamSummaryDTO> getClassExams(String teacherUsername, Integer classId) {
-        return Collections.emptyList(); // Will be committed next
+        List<Exam> exams = examRepository.findByCourseId(classId);
+
+        return exams.stream().map(exam -> {
+            List<ExamSubmission> subs = examSubmissionRepository.findByExamId(exam.getId());
+            return ExamSummaryDTO.builder()
+                    .id(exam.getId())
+                    .title(exam.getTitle())
+                    .examType(exam.getExamType())
+                    .examMode(exam.getExamMode())
+                    .scheduledStartTime(exam.getScheduledStartTime())
+                    .deadlineTime(exam.getDeadlineTime())
+                    .durationMinutes(exam.getDurationMinutes())
+                    .maxScore(exam.getMaxScore())
+                    .status(exam.getStatus())
+                    .totalSubmissions(subs.size())
+                    .build();
+        }).collect(Collectors.toList());
     }
 
     @Transactional
     @Override
     public void deleteExam(String teacherUsername, Integer examId) {
-        // Will be committed next
+        Exam exam = examRepository.findByIdAndTeacherUsername(examId, teacherUsername)
+                .orElseThrow(() -> new RuntimeException("Exam not found or unauthorized"));
+        examRepository.delete(exam);
+        log.info("Exam ID {} deleted by teacher '{}'", examId, teacherUsername);
     }
 
     @Transactional
     @Override
     public void updateExamTiming(String teacherUsername, Integer examId, UpdateExamDeadlineDTO dto) {
-        // Will be committed next
+        Exam exam = examRepository.findByIdAndTeacherUsername(examId, teacherUsername)
+                .orElseThrow(() -> new RuntimeException("Exam not found or unauthorized"));
+
+        if (dto.getDeadlineTime() != null) {
+            exam.setDeadlineTime(dto.getDeadlineTime());
+        }
+        if (dto.getAdditionalMinutes() != null && dto.getAdditionalMinutes() > 0) {
+            exam.setDurationMinutes(exam.getDurationMinutes() + dto.getAdditionalMinutes());
+        }
+
+        examRepository.save(exam);
+        log.info("Exam ID {} timings updated by teacher '{}'", examId, teacherUsername);
     }
 
     @Transactional(readOnly = true)
     @Override
     public OngoingExamGroupDTO getOngoingExams(String teacherUsername) {
-        return null; // Will be committed next
+        List<Exam> exams = examRepository.findByTeacherUsername(teacherUsername);
+        LocalDateTime now = LocalDateTime.now();
+
+        List<ExamSummaryDTO> ongoing = new ArrayList<>();
+        List<ExamSummaryDTO> upcoming = new ArrayList<>();
+
+        for (Exam exam : exams) {
+            ExamSummaryDTO dto = ExamSummaryDTO.builder()
+                    .id(exam.getId())
+                    .title(exam.getTitle())
+                    .examType(exam.getExamType())
+                    .examMode(exam.getExamMode())
+                    .scheduledStartTime(exam.getScheduledStartTime())
+                    .deadlineTime(exam.getDeadlineTime())
+                    .durationMinutes(exam.getDurationMinutes())
+                    .maxScore(exam.getMaxScore())
+                    .status(exam.getStatus())
+                    .totalSubmissions(examSubmissionRepository.findByExamId(exam.getId()).size())
+                    .build();
+
+            if (exam.getScheduledStartTime() != null && exam.getScheduledStartTime().isAfter(now)) {
+                upcoming.add(dto);
+            } else if (exam.getDeadlineTime() == null || exam.getDeadlineTime().isAfter(now)) {
+                ongoing.add(dto);
+            }
+        }
+
+        return OngoingExamGroupDTO.builder()
+                .ongoingExams(ongoing)
+                .upcomingExams(upcoming)
+                .build();
     }
 
     @Transactional(readOnly = true)
