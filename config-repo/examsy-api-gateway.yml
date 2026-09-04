@@ -50,13 +50,13 @@ spring:
         - id: grading-service
           uri: lb://EXAMSY-GRADING-SERVICE
           predicates:
-            - Path=/api/v1/teacher/exams/*/grade/**, /api/v1/teacher/exams/pending-gradings/**
+            - Path=/api/v1/teacher/exams/*/grade/**, /api/v1/teacher/exams/pending-gradings/**, /api/v1/mock-exams/**
 
         # 5. Exam & Proctoring Service
         - id: exam-service
           uri: lb://EXAMSY-EXAM-SERVICE
           predicates:
-            - Path=/api/v1/teacher/exams/**, /api/v1/student/exams/**, /api/v1/mock-exams/**, /api/v1/teacher/dashboard/calendar/**, /api/v1/student/dashboard/calendar/**
+            - Path=/api/v1/teacher/exams/**, /api/v1/student/exams/**, /api/v1/teacher/dashboard/calendar/**, /api/v1/student/dashboard/calendar/**
 
         # 6. Notification Service
         - id: notification-service
