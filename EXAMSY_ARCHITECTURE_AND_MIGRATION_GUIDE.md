@@ -482,6 +482,48 @@ The decomposition follows the **Strangler Fig Pattern**, decoupling services fro
 
 ---
 
+### Phase 10: Notification & Alert Microservice (`examsy-notification-service`)
+* **Objective:** Isolate in-app user notifications, unread badge counters, responsive transactional email dispatching (Spring Mail / Gmail SMTP), and event-driven messaging pipelines into an autonomous microservice backed by `examsy_notification_db`.
+* **Implemented Components:**
+  - Port: **8086** | Database: `examsy_notification_db`.
+  - Technology: Spring Boot **4.0.2**, Spring Cloud **2025.1.2**, Java **21**, Spring Data JPA, Flyway, Spring Mail (`JavaMailSender`), Spring Kafka, Spring Security, `examsy-common`.
+  - Schema Evolution: Flyway `V1__init_notification_schema.sql` creating `notifications` and `notification_logs`.
+  - Autonomous Domain Model: Decoupled monolithic foreign keys to `user_accounts` into autonomous domain entities (`Notification`, `NotificationLog`) storing direct recipient metadata (`user_id`, `username`, `recipient_email`, `course_id`).
+  - Business Features:
+    - **In-App Notification Feed:** Real-time user notification history (`GET /api/v1/notifications`), unread badge count tracking (`GET /api/v1/notifications/unread-count`), individual mark-as-read (`PUT /api/v1/notifications/{id}/read`), and bulk read acknowledgement (`PUT /api/v1/notifications/read-all`).
+    - **Transactional Email Dispatching:** Responsive HTML grade release email templates, rich welcome onboarding emails, and submission receipt confirmations dispatched asynchronously using `JavaMailSender` and `MimeMessageHelper`.
+    - **Audit & Delivery Logging:** Persists delivery status and error messages in `notification_logs` to maintain enterprise traceability and compliance.
+    - **Kafka Event-Driven Alert Listeners:**
+      - `examsy.grade.released` (`GradeReleasedConsumer`): Listens to Phase 9 grading releases, generating in-app grade notifications and sending grade release emails.
+      - `examsy.user.registered` (`UserRegisteredConsumer`): Listens to Phase 5 auth registrations, sending welcome/onboarding alerts.
+      - `examsy.exam.submitted` (`ExamSubmittedConsumer`): Listens to Phase 8 submissions, dispatching submission confirmation receipts.
+* **Repository Commits (`Examsy-Microservice` on `feature/examsy-notification-service`):**
+  - `2c43016`: `chore(notification): initialize examsy-notification-service directory structure and Maven wrapper`
+  - `fb42386`: `build(notification): configure pom.xml with Spring Boot 4.0.2, Spring Cloud 2025.1.2, Mail, and Kafka`
+  - `3e8ca9c`: `config(notification): add local application.properties and bootstrap configuration`
+  - `2a3962b`: `feat(notification): bootstrap ExamsyNotificationServiceApplication main class with discovery client`
+  - `403ce4f`: `db(notification): add Flyway V1 migration script for notifications and delivery audit logs`
+  - `5db974e`: `feat(notification): implement Notification domain entity for in-app alerts`
+  - `200af54`: `feat(notification): implement NotificationLog domain entity for email delivery audit logs`
+  - `9541714`: `feat(notification): add NotificationRepo with username lookups and unread count queries`
+  - `84ff449`: `feat(notification): add NotificationLogRepo for email delivery auditing`
+  - `2f0557d`: `feat(notification): configure SecurityConfig using shared JwtAuthFilter and user authorization`
+  - `b54438b`: `feat(notification): add GradeReleasedEvent DTO, UserRegisteredEvent DTO, and ExamSubmittedEvent DTO`
+  - `9f25b0f`: `feat(notification): add NotificationDTO response payload`
+  - `bd9ffd8`: `feat(notification): add EmailPayloadDTO for transactional email formatting`
+  - `704776e`: `feat(notification): add DirectAlertRequestDTO for teacher-to-student alerts`
+  - `546fb6d`: `feat(notification): define EmailService interface for transactional message dispatch`
+  - `fd9fbf7`: `feat(notification): implement EmailServiceImpl with JavaMailSender and resilient audit logging`
+  - `d5b0cc1`: `feat(notification): define NotificationService interface for user notification lifecycle`
+  - `bc73071`: `feat(notification): implement NotificationServiceImpl with in-app alert lifecycle and alert routing`
+  - `f865e8e`: `feat(notification): implement GradeReleasedConsumer for automated grade notification dispatch`
+  - `e9fa520`: `feat(notification): implement UserRegisteredConsumer for onboarding welcome email dispatch`
+  - `23f4e8a`: `feat(notification): implement ExamSubmittedConsumer for submission confirmation alerts`
+  - `789f8ea`: `feat(notification): implement NotificationController for notifications feed and unread badge`
+  - `5e79ae6`: `config(notification): add centralized examsy-notification-service.properties to config-repo`
+
+---
+
 ## 🔮 PART 3: Upcoming Migration Phases (Next Steps)
 
 The following phases are sequenced based on data dependencies to ensure zero downtime and smooth data transitions.
@@ -498,23 +540,13 @@ The following phases are sequenced based on data dependencies to ensure zero dow
   [Shared Lib] examsy-common       ──> COMPLETED (Shared Security & SDK, 9 Commits)
   [Phase 8] Exam & Proctor Service ──> COMPLETED (Port 8084, 37 Commits)
   [Phase 9] AI Grading & OCR       ──> COMPLETED (Port 8085, 33 Commits)
+  [Phase 10] Notification Service  ──> COMPLETED (Port 8086, 23 Commits)
 ────────────────────────────────────────────────────────────────────────────────
-  [Phase 10] Notification Service  ──> NEXT IMMEDIATE PHASE (Port 8086)
-  [Phase 11] Admin & Analytics     ──> UPCOMING (Port 8087 / 8088)
+  [Phase 11] Admin & Analytics     ──> NEXT IMMEDIATE PHASE (Port 8087 / 8088)
   [Phase 12] Hardening & CI/CD     ──> FINAL VALIDATION & DEPLOYMENT
 ```
 
-### 📍 Phase 10: Notification & Alert Microservice (`examsy-notification-service`) — *IMMEDIATE NEXT*
-* **Port:** 8086 | **Database:** `examsy_notification_db`
-* **Responsibilities:** Push notifications, transactional emails, and scheduled 48-hour exam alerts.
-* **Key Tasks:**
-  1. Integrate Spring Mail (`JavaMailSender`) with Gmail SMTP.
-  2. **Kafka Consumer:** Listen to `examsy.user.registered`, `examsy.exam.upcoming`, `examsy.grade.released`, and `examsy.student.warned`.
-  3. Implement Spring `@Scheduled` worker for 48-hour upcoming exam notifications.
-
----
-
-### 📍 Phase 11: Admin Moderation & Analytics Microservice (`examsy-admin-service` / `examsy-analytics-service`)
+### 📍 Phase 11: Admin Moderation & Analytics Microservice (`examsy-admin-service` / `examsy-analytics-service`) — *IMMEDIATE NEXT*
 * **Port:** 8087 / 8088 | **Database:** `examsy_admin_db` / `examsy_analytics_db`
 * **Responsibilities:** Violation reports, teacher/class termination, and materialized GPA / pass-rate views.
 * **Key Tasks:**
