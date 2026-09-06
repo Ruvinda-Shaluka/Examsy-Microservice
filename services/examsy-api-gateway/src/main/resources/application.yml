@@ -41,7 +41,13 @@ spring:
           predicates:
             - Path=/api/v1/students/**, /api/v1/teachers/**, /api/v1/admins/**
 
-        # 3. Class & Course Management Service
+        # 3. Student Class Report Moderation Route (Higher precedence)
+        - id: student-report-service
+          uri: lb://EXAMSY-ADMIN-SERVICE
+          predicates:
+            - Path=/api/v1/student/dashboard/classes/report
+
+        # 4. Class & Course Management Service
         - id: class-service
           uri: lb://EXAMSY-CLASS-SERVICE
           predicates:
