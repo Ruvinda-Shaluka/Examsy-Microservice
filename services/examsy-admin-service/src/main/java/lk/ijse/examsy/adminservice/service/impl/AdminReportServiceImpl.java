@@ -10,7 +10,7 @@ import lk.ijse.examsy.adminservice.event.TeacherTerminatedEvent;
 import lk.ijse.examsy.adminservice.kafka.AdminEventProducer;
 import lk.ijse.examsy.adminservice.repository.ReportRepo;
 import lk.ijse.examsy.adminservice.service.AdminReportService;
-import lk.ijse.examsy.common.exception.ResourceNotFoundException;
+import lk.ijse.examsy.adminservice.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
