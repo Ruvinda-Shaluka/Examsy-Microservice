@@ -1,0 +1,105 @@
+# ===================================================================
+# Prometheus Server Configuration for Examsy Microservices Ecosystem
+# Scrapes Spring Boot Actuator metrics (/actuator/prometheus)
+# ===================================================================
+
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+  scrape_timeout: 7s
+
+scrape_configs:
+  # 1. Prometheus Self-Monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # 2. Spring Cloud Config Server
+  - job_name: "examsy-config-server"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["config-server:8888", "host.docker.internal:8888"]
+        labels:
+          application: "examsy-config-server"
+          tier: "infrastructure"
+
+  # 3. Netflix Eureka Discovery Registry
+  - job_name: "examsy-eureka-server"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["eureka-server:8761", "host.docker.internal:8761"]
+        labels:
+          application: "examsy-eureka-server"
+          tier: "infrastructure"
+
+  # 4. Spring Cloud API Gateway
+  - job_name: "examsy-api-gateway"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["api-gateway:8080", "host.docker.internal:8080"]
+        labels:
+          application: "examsy-api-gateway"
+          tier: "edge"
+
+  # 5. Authentication & OAuth2 Service
+  - job_name: "examsy-auth-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["auth-service:8081", "host.docker.internal:8081"]
+        labels:
+          application: "examsy-auth-service"
+          tier: "core"
+
+  # 6. User Profile Service
+  - job_name: "examsy-profile-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["profile-service:8082", "host.docker.internal:8082"]
+        labels:
+          application: "examsy-profile-service"
+          tier: "core"
+
+  # 7. Class & Course Service
+  - job_name: "examsy-class-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["class-service:8083", "host.docker.internal:8083"]
+        labels:
+          application: "examsy-class-service"
+          tier: "core"
+
+  # 8. Exam & Proctoring Service
+  - job_name: "examsy-exam-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["exam-service:8084", "host.docker.internal:8084"]
+        labels:
+          application: "examsy-exam-service"
+          tier: "core"
+
+  # 9. AI Grading & OCR Service
+  - job_name: "examsy-grading-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["grading-service:8085", "host.docker.internal:8085"]
+        labels:
+          application: "examsy-grading-service"
+          tier: "worker"
+
+  # 10. Notification & Alert Service
+  - job_name: "examsy-notification-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["notification-service:8086", "host.docker.internal:8086"]
+        labels:
+          application: "examsy-notification-service"
+          tier: "worker"
+
+  # 11. Admin & Analytics Service
+  - job_name: "examsy-admin-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: ["admin-service:8087", "host.docker.internal:8087"]
+        labels:
+          application: "examsy-admin-service"
+          tier: "core"

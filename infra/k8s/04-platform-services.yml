@@ -1,0 +1,146 @@
+# ===================================================================
+# Examsy Platform Services: Config Server, Eureka Registry, Gateway
+# ===================================================================
+
+# ── 1. Spring Cloud Config Server ───────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: examsy-config-server
+  namespace: examsy
+spec:
+  ports:
+    - port: 8888
+      name: http
+  selector:
+    app: examsy-config-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: examsy-config-server
+  namespace: examsy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: examsy-config-server
+  template:
+    metadata:
+      labels:
+        app: examsy-config-server
+    spec:
+      containers:
+        - name: config-server
+          image: ghcr.io/ruvinda-shaluka/examsy-config-server:latest
+          ports:
+            - containerPort: 8888
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "150m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+
+# ── 2. Netflix Eureka Service Registry ──────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: examsy-eureka-server
+  namespace: examsy
+spec:
+  ports:
+    - port: 8761
+      name: http
+  selector:
+    app: examsy-eureka-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: examsy-eureka-server
+  namespace: examsy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: examsy-eureka-server
+  template:
+    metadata:
+      labels:
+        app: examsy-eureka-server
+    spec:
+      containers:
+        - name: eureka-server
+          image: ghcr.io/ruvinda-shaluka/examsy-eureka-server:latest
+          ports:
+            - containerPort: 8761
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "150m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+
+# ── 3. Spring Cloud API Gateway ──────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: examsy-api-gateway
+  namespace: examsy
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      name: http
+  selector:
+    app: examsy-api-gateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: examsy-api-gateway
+  namespace: examsy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: examsy-api-gateway
+  template:
+    metadata:
+      labels:
+        app: examsy-api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: ghcr.io/ruvinda-shaluka/examsy-api-gateway:latest
+          envFrom:
+            - configMapRef:
+                name: examsy-global-config
+            - secretRef:
+                name: examsy-secrets
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"

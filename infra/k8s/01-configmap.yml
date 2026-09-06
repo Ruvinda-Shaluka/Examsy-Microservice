@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: examsy-global-config
+  namespace: examsy
+data:
+  SPRING_CONFIG_IMPORT: "optional:configserver:http://examsy-config-server.examsy.svc.cluster.local:8888"
+  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://examsy-eureka-server.examsy.svc.cluster.local:8761/eureka/"
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: "examsy-kafka.examsy.svc.cluster.local:9092"
+  SPRING_DATA_REDIS_HOST: "examsy-redis.examsy.svc.cluster.local"
+  SPRING_DATA_REDIS_PORT: "6379"
+  MYSQL_HOST: "examsy-mysql.examsy.svc.cluster.local"
+  MYSQL_PORT: "3306"
+  ZIPKIN_ENDPOINT: "http://examsy-zipkin.examsy.svc.cluster.local:9411/api/v2/spans"
+  PROMETHEUS_SCRAPE: "true"

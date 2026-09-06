@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: examsy
+  labels:
+    app.kubernetes.io/name: examsy
+    app.kubernetes.io/part-of: examsy-platform
