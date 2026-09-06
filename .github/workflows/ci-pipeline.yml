@@ -37,23 +37,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
 
       - name: Install Common Library (Local Repository)
-        run: |
-          cd services/examsy-common
-          chmod +x ./mvnw
-          ./mvnw clean install -DskipTests
+        run: mvn -B clean install -DskipTests -f services/examsy-common/pom.xml
 
       - name: Build & Test Service
-        run: |
-          cd services/${{ matrix.service }}
-          chmod +x ./mvnw
-          ./mvnw clean test -B
+        run: mvn -B clean test -f services/${{ matrix.service }}/pom.xml
 
   # ── 2. Docker Compose & Manifest Syntax Validation ──────────────────────────
   docker-and-k8s-validation:
