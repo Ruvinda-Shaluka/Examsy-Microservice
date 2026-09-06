@@ -573,9 +573,39 @@ The decomposition follows the **Strangler Fig Pattern**, decoupling services fro
 
 ---
 
-## 🔮 PART 3: Upcoming Migration Phases (Next Steps)
+### Phase 12: Production Observability, CI/CD & Cloud Hardening
+* **Objective:** Establish enterprise-grade distributed tracing, centralized metrics scraping, multi-stage containerization, Kubernetes declarative manifests with autoscaling (HPA), and GitHub Actions automated testing and deployment pipelines.
+* **Implemented Components:**
+  - **Distributed Tracing & Metrics Observability Stack:**
+    - **OpenZipkin Tracing (Port 9411):** End-to-end B3/W3C distributed trace propagation across Spring Cloud Gateway and all 9 downstream microservices with 100% sample rate (`management.tracing.sampling.probability=1.0`).
+    - **Prometheus Server (Port 9090):** Automated scraping pipeline (`infra/prometheus/prometheus.yml`) querying `/actuator/prometheus` on 10s intervals across all 10 microservices, tracking HTTP latency percentiles, error rates, and JVM performance.
+    - **Grafana Dashboards (Port 3001):** Pre-provisioned datasources (`Prometheus` & `Zipkin`) and interactive visualization dashboard (`infra/grafana/dashboards/examsy-overview.json`) displaying live service counts, p95/p99 latency, request throughput, and JVM heap consumption.
+  - **Production Multi-Stage Containerization:**
+    - Lightweight, multi-stage `Dockerfile` definitions across all microservices leveraging `eclipse-temurin:21-jdk-alpine` builder and `eclipse-temurin:21-jre-alpine` runtime.
+    - Native Tesseract OCR integration in `examsy-grading-service` (`tesseract-ocr` & `tesseract-ocr-data-eng`) for containerized PDF answer script text extraction.
+    - Full-stack local orchestration in `docker-compose.yml` integrating MySQL, Redis, Zookeeper, Kafka, Kafka UI, OpenZipkin, Prometheus, and Grafana.
+  - **Cloud Native Kubernetes Architecture (`infra/k8s/`):**
+    - Isolated namespace: `examsy` (`00-namespace.yml`).
+    - Centralized ConfigMaps (`01-configmap.yml`) and encrypted Opaque Secrets (`02-secrets.yml`).
+    - Stateful and data infrastructure manifests (`03-infrastructure.yml`) for MySQL 8 StatefulSet, Redis 7, Zookeeper, Kafka, and Zipkin.
+    - Highly available Deployments and ClusterIP Services for platform infrastructure (`04-platform-services.yml`: Config Server, Eureka, Gateway) and domain services (`05-domain-services.yml`: Auth, Profile, Class, Exam, Grading, Notification, Admin).
+    - **Horizontal Pod Autoscaling (HPA):** Elastic auto-scaling on CPU (>70%) and memory (>80%) for peak exam traffic (`examsy-exam-service`: 2-10 replicas) and compute-heavy AI grading (`examsy-grading-service`: 2-8 replicas).
+    - **Edge Ingress:** Production NGINX Ingress Controller routing edge traffic (`api.examsy.com`) with 50MB payload limits for exam PDF uploads.
+  - **Automated CI/CD Workflows (`.github/workflows/`):**
+    - Matrix CI pipeline (`ci-pipeline.yml`) building and testing all 11 Maven modules concurrently on Ubuntu runners.
+    - Automated container packaging and publishing pipeline (`docker-publish.yml`) building multi-architecture Docker containers and pushing to GitHub Container Registry (`ghcr.io/ruvinda-shaluka/examsy-*`).
+* **Repository Commits (`Examsy-Microservice` on `feature/examsy-observability-and-cicd`):**
+  - `595084a`: `config(observability): centralize Actuator Prometheus metrics and Zipkin distributed tracing settings`
+  - `dec5748`: `feat(observability): add Prometheus configuration for scraping all microservice actuator endpoints`
+  - `abfab1d`: `feat(observability): add Grafana datasource provisioning and microservices overview dashboard`
+  - `e563510`: `build(docker): add production multi-stage Dockerfiles across all microservices`
+  - `f17573c`: `feat(docker): integrate Zipkin, Prometheus, and Grafana into docker-compose observability stack`
+  - `e5a31b4`: `feat(k8s): add production Kubernetes manifests, Deployments, Services, Ingress, and HPA`
+  - `49de907`: `ci(actions): add multi-service CI testing matrix and automated GHCR Docker publish workflows`
 
-The following phases are sequenced based on data dependencies to ensure zero downtime and smooth data transitions.
+---
+
+## 🔮 PART 3: Full Migration Roadmap — Completed!
 
 ```
                   CURRENT PROGRESS CHECKPOINT:
@@ -591,17 +621,10 @@ The following phases are sequenced based on data dependencies to ensure zero dow
   [Phase 9] AI Grading & OCR       ──> COMPLETED (Port 8085, 33 Commits)
   [Phase 10] Notification Service  ──> COMPLETED (Port 8086, 23 Commits)
   [Phase 11] Admin & Analytics     ──> COMPLETED (Port 8087, 24 Commits)
+  [Phase 12] Hardening & CI/CD     ──> COMPLETED (Observability, K8s, CI/CD, 8 Commits)
 ────────────────────────────────────────────────────────────────────────────────
-  [Phase 12] Hardening & CI/CD     ──> NEXT IMMEDIATE PHASE
+  MIGRATION ROADMAP: ALL 12 PHASES FULLY IMPLEMENTED & PRODUCTION READY! 🎉
 ```
-
-### 📍 Phase 12: Production Observability, CI/CD & Cloud Hardening — *IMMEDIATE NEXT*
-* **Responsibilities:** Distributed tracing, container deployment, and automated CI/CD pipelines.
-* **Key Tasks:**
-  1. Distributed Tracing: Micrometer Tracing with Zipkin/Jaeger to track request spans across Gateway and microservices.
-  2. Centralized Metrics: Spring Boot Actuator with Prometheus scraping and Grafana dashboards.
-  3. CI/CD: Per-service GitHub Actions pipelines building multi-stage Docker containers pushed to GitHub Container Registry (ghcr.io).
-  4. Kubernetes Manifests: Deployments, ClusterIP Services, ConfigMaps, and Secrets.
 
 ---
 
