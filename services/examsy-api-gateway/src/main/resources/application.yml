@@ -41,7 +41,13 @@ spring:
           predicates:
             - Path=/api/v1/students/**, /api/v1/teachers/**, /api/v1/admins/**
 
-        # 3. Class & Course Management Service
+        # 3. Student Class Report Moderation Route (Higher precedence)
+        - id: student-report-service
+          uri: lb://EXAMSY-ADMIN-SERVICE
+          predicates:
+            - Path=/api/v1/student/dashboard/classes/report
+
+        # 4. Class & Course Management Service
         - id: class-service
           uri: lb://EXAMSY-CLASS-SERVICE
           predicates:
@@ -51,13 +57,13 @@ spring:
         - id: grading-service
           uri: lb://EXAMSY-GRADING-SERVICE
           predicates:
-            - Path=/api/v1/teacher/exams/*/grade/**, /api/v1/teacher/exams/pending-gradings/**
+            - Path=/api/v1/teacher/exams/*/grade/**, /api/v1/teacher/exams/pending-gradings/**, /api/v1/mock-exams/**
 
         # 5. Exam & Proctoring Service
         - id: exam-service
           uri: lb://EXAMSY-EXAM-SERVICE
           predicates:
-            - Path=/api/v1/teacher/exams/**, /api/v1/student/exams/**, /api/v1/mock-exams/**, /api/v1/teacher/dashboard/calendar/**, /api/v1/student/dashboard/calendar/**
+            - Path=/api/v1/teacher/exams/**, /api/v1/student/exams/**, /api/v1/teacher/dashboard/calendar/**, /api/v1/student/dashboard/calendar/**
 
         # 6. Notification Service
         - id: notification-service
