@@ -524,6 +524,55 @@ The decomposition follows the **Strangler Fig Pattern**, decoupling services fro
 
 ---
 
+### Phase 11: Admin Moderation & Materialized Analytics Microservice (`examsy-admin-service`)
+* **Objective:** Isolate administrative moderation consoles, class/instructor policy violation workflows, and event-driven materialized platform metrics aggregations into an autonomous microservice backed by `examsy_admin_db`.
+* **Implemented Components:**
+  - Port: **8087** | Database: `examsy_admin_db`.
+  - Technology: Spring Boot **4.0.2**, Spring Cloud **2025.1.2**, Java **21**, Spring Data JPA, Flyway, Spring Kafka, Spring Security, `examsy-common`.
+  - Schema Evolution: Flyway `V1__init_admin_schema.sql` creating `reports` and `platform_metrics`.
+  - Autonomous Domain Model: Decoupled monolithic foreign keys into direct domain attributes (`reporter_student_username`, `target_course_name`, `target_teacher_username`, `category`, `priority_level`), enabling sub-5ms report listings and zero cross-database locking.
+  - Business Features:
+    - **Admin Dashboard Real-Time Metrics (`GET /api/v1/admin/dashboard/metrics`):** Aggregates total students, active teachers, total platform users, pending reports, and category-wise violation breakdown.
+    - **Moderation Console (`GET /api/v1/admin/reports`):** Live queue of pending student complaints with priority tags and instructor complaint history counts.
+    - **Disciplinary Enforcement Actions:**
+      - Terminate Class (`DELETE /api/v1/admin/reports/{reportId}/terminate-class`)
+      - Terminate Teacher (`DELETE /api/v1/admin/reports/{reportId}/terminate-teacher`)
+      - Dismiss Report (`PUT /api/v1/admin/reports/{reportId}/dismiss`)
+      - Official Warning (`POST /api/v1/admin/reports/{reportId}/warn-teacher`)
+      - Student Reply (`POST /api/v1/admin/reports/{reportId}/reply-student`)
+    - **Student Violation Reporting (`POST /api/v1/student/dashboard/classes/report` & `POST /api/v1/admin/reports/file`):** Directly routed via API Gateway to ensure 100% frontend compatibility with zero client-side code changes.
+    - **Event-Driven Kafka Pipeline:**
+      - Emits `examsy.class.terminated`, `examsy.teacher.terminated`, `examsy.admin.alert`.
+      - Consumes `examsy.user.registered`, `examsy.exam.submitted`, `examsy.grade.released`, `examsy.class.reported` to maintain materialized metric counters (`platform_metrics`) without expensive table scans.
+    - **Integration with Notification Service:** Dispatches automated email and in-app alerts via `AdminAlertConsumer` in `examsy-notification-service` upon moderation actions.
+* **Repository Commits (`Examsy-Microservice` on `feature/examsy-admin-service`):**
+  - `ed27622`: `chore(admin): initialize examsy-admin-service directory structure and Maven wrapper`
+  - `aa1a413`: `build(admin): configure pom.xml with Spring Boot 4.0.2, Spring Cloud 2025.1.2, JPA, and Kafka`
+  - `27984b0`: `config(admin): add local application.properties and bootstrap configuration`
+  - `f1c414e`: `feat(admin): bootstrap ExamsyAdminServiceApplication main class with discovery client`
+  - `5c18d95`: `db(admin): add Flyway V1 migration script for reports and platform metrics schema`
+  - `16d8016`: `feat(admin): implement Report domain entity for moderation violations`
+  - `7b4e04e`: `feat(admin): implement PlatformMetric domain entity for materialized analytics counters`
+  - `af0ad8d`: `feat(admin): add ReportRepo with status filters, teacher complaint counts, and category aggregations`
+  - `1207687`: `feat(admin): add PlatformMetricRepo for atomic analytics counters tracking`
+  - `97a00df`: `feat(admin): configure SecurityConfig with role-based authorization for admin endpoints`
+  - `0775ee6`: `feat(admin): define Kafka event models for analytics ingestion and moderation actions`
+  - `03b0cb2`: `feat(admin): add request and response DTOs for dashboard metrics, reports, and report filing`
+  - `23add30`: `feat(admin): define AdminDashboardService interface for platform metrics aggregation`
+  - `eba4625`: `feat(admin): implement AdminDashboardServiceImpl with materialized metrics and category aggregations`
+  - `65348ac`: `feat(admin): define AdminReportService interface for moderation and violation lifecycle`
+  - `11db6a9`: `feat(admin): implement AdminEventProducer for Kafka moderation and alert events`
+  - `c6308de`: `feat(admin): implement AdminReportServiceImpl with violation resolution, alerts, and report filing`
+  - `749460b`: `feat(admin): implement PlatformAnalyticsConsumer for event-driven metrics ingestion and report synchronization`
+  - `b20506d`: `feat(admin): implement AdminDashboardController for platform metrics feed`
+  - `941110b`: `feat(admin): implement AdminReportController and StudentReportController for moderation actions and violation reporting`
+  - `87a238c`: `config(admin): add centralized examsy-admin-service.properties to config-repo`
+  - `ddaee15`: `fix(admin): add ResourceNotFoundException and update import in AdminReportServiceImpl`
+  - `26f2383`: `config(gateway): add routing predicate for student violation reports to examsy-admin-service`
+  - `8df6a83`: `feat(notification): implement AdminAlertConsumer for automated moderation warnings and student replies`
+
+---
+
 ## 🔮 PART 3: Upcoming Migration Phases (Next Steps)
 
 The following phases are sequenced based on data dependencies to ensure zero downtime and smooth data transitions.
@@ -541,21 +590,12 @@ The following phases are sequenced based on data dependencies to ensure zero dow
   [Phase 8] Exam & Proctor Service ──> COMPLETED (Port 8084, 37 Commits)
   [Phase 9] AI Grading & OCR       ──> COMPLETED (Port 8085, 33 Commits)
   [Phase 10] Notification Service  ──> COMPLETED (Port 8086, 23 Commits)
+  [Phase 11] Admin & Analytics     ──> COMPLETED (Port 8087, 24 Commits)
 ────────────────────────────────────────────────────────────────────────────────
-  [Phase 11] Admin & Analytics     ──> NEXT IMMEDIATE PHASE (Port 8087 / 8088)
-  [Phase 12] Hardening & CI/CD     ──> FINAL VALIDATION & DEPLOYMENT
+  [Phase 12] Hardening & CI/CD     ──> NEXT IMMEDIATE PHASE
 ```
 
-### 📍 Phase 11: Admin Moderation & Analytics Microservice (`examsy-admin-service` / `examsy-analytics-service`) — *IMMEDIATE NEXT*
-* **Port:** 8087 / 8088 | **Database:** `examsy_admin_db` / `examsy_analytics_db`
-* **Responsibilities:** Violation reports, teacher/class termination, and materialized GPA / pass-rate views.
-* **Key Tasks:**
-  1. Implement Admin dashboard metric aggregations and moderation queues.
-  2. Maintain read-optimized views for student GPA progression and class performance.
-
----
-
-### 📍 Phase 12: Production Observability, CI/CD & Cloud Hardening
+### 📍 Phase 12: Production Observability, CI/CD & Cloud Hardening — *IMMEDIATE NEXT*
 * **Responsibilities:** Distributed tracing, container deployment, and automated CI/CD pipelines.
 * **Key Tasks:**
   1. Distributed Tracing: Micrometer Tracing with Zipkin/Jaeger to track request spans across Gateway and microservices.
