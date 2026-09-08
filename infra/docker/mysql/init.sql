@@ -35,3 +35,13 @@ CREATE DATABASE IF NOT EXISTS examsy_admin_db
 -- 8. Analytics Service Database (Denormalized read-models, precomputed metrics)
 CREATE DATABASE IF NOT EXISTS examsy_analytics_db
     CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- ====================================================================
+-- Credential Synchronization: Dual-Password Support
+-- Allows both container-initialized MYSQL_ROOT_PASSWORD and the
+-- development default ('root') to authenticate seamlessly without conflicts.
+-- ====================================================================
+ALTER USER 'root'@'%' IDENTIFIED BY 'root' RETAIN CURRENT PASSWORD;
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'root' RETAIN CURRENT PASSWORD;
+FLUSH PRIVILEGES;
+
