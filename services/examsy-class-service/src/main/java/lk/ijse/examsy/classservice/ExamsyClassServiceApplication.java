@@ -4,7 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"lk.ijse.examsy.classservice", "lk.ijse.examsy.common"})
 @EnableDiscoveryClient
 public class ExamsyClassServiceApplication {
 
