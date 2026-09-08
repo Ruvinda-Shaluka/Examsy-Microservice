@@ -398,10 +398,17 @@ CREATE DATABASE IF NOT EXISTS examsy_analytics_db
     CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- ====================================================================
--- Credential Synchronization: Dual-Password Support
--- Allows both container-initialized MYSQL_ROOT_PASSWORD and the
--- development default ('root') to authenticate seamlessly without conflicts.
+-- Application Database User (Principle of Least Privilege)
+-- Microservices connect as 'examsy_app', NOT as root.
+-- Root account is reserved for container administration only.
 -- ====================================================================
-ALTER USER 'root'@'%' IDENTIFIED BY 'root' RETAIN CURRENT PASSWORD;
-ALTER USER 'root'@'localhost' IDENTIFIED BY 'root' RETAIN CURRENT PASSWORD;
+CREATE USER IF NOT EXISTS 'examsy_app'@'%' IDENTIFIED BY 'examsy_app_pass';
+GRANT ALL PRIVILEGES ON examsy_auth_db.*         TO 'examsy_app'@'%';
+GRANT ALL PRIVILEGES ON examsy_profile_db.*      TO 'examsy_app'@'%';
+GRANT ALL PRIVILEGES ON examsy_class_db.*        TO 'examsy_app'@'%';
+GRANT ALL PRIVILEGES ON examsy_exam_db.*         TO 'examsy_app'@'%';
+GRANT ALL PRIVILEGES ON examsy_grading_db.*      TO 'examsy_app'@'%';
+GRANT ALL PRIVILEGES ON examsy_notification_db.* TO 'examsy_app'@'%';
+GRANT ALL PRIVILEGES ON examsy_admin_db.*        TO 'examsy_app'@'%';
+GRANT ALL PRIVILEGES ON examsy_analytics_db.*    TO 'examsy_app'@'%';
 FLUSH PRIVILEGES;
