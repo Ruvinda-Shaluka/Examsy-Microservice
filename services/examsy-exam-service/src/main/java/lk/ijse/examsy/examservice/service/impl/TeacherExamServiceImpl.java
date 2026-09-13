@@ -26,6 +26,7 @@ public class TeacherExamServiceImpl implements TeacherExamService {
     private final QuestionRepo questionRepository;
     private final QuestionOptionRepo questionOptionRepository;
     private final ExamSubmissionRepo examSubmissionRepository;
+    private final ProctoringLogRepo proctoringLogRepository;
 
     @Transactional
     @Override
@@ -211,18 +212,41 @@ public class TeacherExamServiceImpl implements TeacherExamService {
 
         List<ExamSubmission> submissions = examSubmissionRepository.findByExamId(examId);
 
-        return submissions.stream().map(sub -> LiveStudentMonitorDTO.builder()
-                .studentId(sub.getStudentId())
-                .studentName(sub.getStudentName() != null ? sub.getStudentName() : sub.getStudentUsername())
-                .studentUsername(sub.getStudentUsername())
-                .submissionStatus(sub.getStatus())
-                .proctoringStatus(sub.getProctoringStatus())
-                .suspiciousEvents(sub.getSuspiciousEventCount())
-                .timeAwaySeconds(sub.getTotalTimeAwaySeconds())
-                .lastAction(sub.getLastKnownAction())
-                .startedAt(sub.getActualStartTime())
-                .build()
-        ).collect(Collectors.toList());
+        return submissions.stream().map(sub -> {
+            String name = sub.getStudentName() != null && !sub.getStudentName().isBlank() ?
+                    sub.getStudentName() : sub.getStudentUsername();
+            int flags = sub.getSuspiciousEventCount() != null ? sub.getSuspiciousEventCount() : 0;
+            int awaySec = sub.getTotalTimeAwaySeconds() != null ? sub.getTotalTimeAwaySeconds() : 0;
+            String status = "IN_PROGRESS".equalsIgnoreCase(sub.getStatus()) || "ACTIVE".equalsIgnoreCase(sub.getStatus()) ?
+                    "active" : (sub.getStatus() != null ? sub.getStatus().toLowerCase() : "submitted");
+
+            List<ProctoringLog> logs = proctoringLogRepository.findByExamSubmissionIdOrderByRecordedAtAsc(sub.getId());
+            List<ProctoringLogDetailDTO> history = logs != null ? logs.stream().map(l -> ProctoringLogDetailDTO.builder()
+                    .eventType(l.getEventType())
+                    .durationSeconds(l.getDurationSeconds() != null ? l.getDurationSeconds() : 0)
+                    .recordedAt(l.getRecordedAt())
+                    .build()
+            ).collect(Collectors.toList()) : Collections.emptyList();
+
+            return LiveStudentMonitorDTO.builder()
+                    .id(sub.getStudentId())
+                    .studentId(sub.getStudentId())
+                    .name(name)
+                    .studentName(name)
+                    .studentUsername(sub.getStudentUsername())
+                    .status(status)
+                    .submissionStatus(sub.getStatus())
+                    .flags(flags)
+                    .suspiciousEvents(flags)
+                    .flagged(flags > 0)
+                    .totalAwaySeconds(awaySec)
+                    .timeAwaySeconds(awaySec)
+                    .proctoringStatus(sub.getProctoringStatus())
+                    .lastAction(sub.getLastKnownAction())
+                    .startedAt(sub.getActualStartTime())
+                    .proctoringHistory(history)
+                    .build();
+        }).collect(Collectors.toList());
     }
 
     @Transactional

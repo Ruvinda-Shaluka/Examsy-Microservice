@@ -6,12 +6,23 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class LiveStudentMonitorDTO {
+    // Frontend properties
+    private Integer id;
+    private String name;
+    private String status;
+    private Integer flags;
+    private Integer totalAwaySeconds;
+    private Boolean flagged;
+    private List<ProctoringLogDetailDTO> proctoringHistory;
+
+    // Backend metadata
     private Integer studentId;
     private String studentName;
     private String studentUsername;
