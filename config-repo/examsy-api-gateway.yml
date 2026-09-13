@@ -50,7 +50,7 @@ spring:
             - id: class-service
               uri: lb://examsy-class-service
               predicates:
-                - Path=/api/v1/teacher/dashboard/classes/**,/api/v1/teacher/classes/**,/api/v1/student/dashboard/classes/**
+                - Path=/api/v1/teacher/dashboard/classes/**,/api/v1/teacher/dashboard/rotate-codes,/api/v1/teacher/classes/**,/api/v1/student/dashboard/classes/**
 
             # 5. Grading & AI Service (Evaluations & Approvals)
             - id: grading-service
