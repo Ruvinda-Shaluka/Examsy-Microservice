@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -132,10 +134,47 @@ public class TeacherExamServiceImpl implements TeacherExamService {
         List<Exam> exams = examRepository.findByTeacherUsername(teacherUsername);
         LocalDateTime now = LocalDateTime.now();
 
+        List<OngoingExamDTO> realTimeList = new ArrayList<>();
+        List<OngoingExamDTO> deadlineList = new ArrayList<>();
         List<ExamSummaryDTO> ongoing = new ArrayList<>();
         List<ExamSummaryDTO> upcoming = new ArrayList<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm");
 
         for (Exam exam : exams) {
+            List<ExamSubmission> subs = examSubmissionRepository.findByExamId(exam.getId());
+            int completedCount = (int) subs.stream()
+                    .filter(s -> "COMPLETED".equalsIgnoreCase(s.getStatus()) || "SUBMITTED".equalsIgnoreCase(s.getStatus()))
+                    .count();
+            int activeCount = (int) subs.stream()
+                    .filter(s -> "IN_PROGRESS".equalsIgnoreCase(s.getStatus()) || "ACTIVE".equalsIgnoreCase(s.getStatus()))
+                    .count();
+            int totalRoster = Math.max(subs.size(), 30);
+
+            OngoingExamDTO ongoingCard = OngoingExamDTO.builder()
+                    .id(exam.getId())
+                    .title(exam.getTitle())
+                    .className("Class #" + exam.getCourseId())
+                    .examMode(exam.getExamMode())
+                    .activeStudents(activeCount)
+                    .submissions(completedCount)
+                    .totalStudents(totalRoster)
+                    .build();
+
+            String mode = exam.getExamMode();
+            if (mode != null && (mode.equalsIgnoreCase("REAL_TIME") || mode.equalsIgnoreCase("REAL-TIME"))) {
+                if (exam.getScheduledStartTime() != null && exam.getDurationMinutes() != null) {
+                    LocalDateTime endTime = exam.getScheduledStartTime().plusMinutes(exam.getDurationMinutes());
+                    long minutesLeft = ChronoUnit.MINUTES.between(now, endTime);
+                    ongoingCard.setRemainingTime(minutesLeft > 0 ? minutesLeft + "m left" : "Ending soon");
+                } else {
+                    ongoingCard.setRemainingTime("Time TBA");
+                }
+                realTimeList.add(ongoingCard);
+            } else {
+                ongoingCard.setDeadline(exam.getDeadlineTime() != null ? exam.getDeadlineTime().format(formatter) : "No Deadline");
+                deadlineList.add(ongoingCard);
+            }
+
             ExamSummaryDTO dto = ExamSummaryDTO.builder()
                     .id(exam.getId())
                     .title(exam.getTitle())
@@ -146,7 +185,7 @@ public class TeacherExamServiceImpl implements TeacherExamService {
                     .durationMinutes(exam.getDurationMinutes())
                     .maxScore(exam.getMaxScore())
                     .status(exam.getStatus())
-                    .totalSubmissions(examSubmissionRepository.findByExamId(exam.getId()).size())
+                    .totalSubmissions(subs.size())
                     .build();
 
             if (exam.getScheduledStartTime() != null && exam.getScheduledStartTime().isAfter(now)) {
@@ -157,6 +196,8 @@ public class TeacherExamServiceImpl implements TeacherExamService {
         }
 
         return OngoingExamGroupDTO.builder()
+                .realTime(realTimeList)
+                .deadline(deadlineList)
                 .ongoingExams(ongoing)
                 .upcomingExams(upcoming)
                 .build();
