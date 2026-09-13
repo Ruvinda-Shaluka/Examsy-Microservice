@@ -12,6 +12,8 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class OngoingExamGroupDTO {
+    private List<OngoingExamDTO> realTime;
+    private List<OngoingExamDTO> deadline;
     private List<ExamSummaryDTO> ongoingExams;
     private List<ExamSummaryDTO> upcomingExams;
 }

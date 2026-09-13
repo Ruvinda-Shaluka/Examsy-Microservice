@@ -52,13 +52,13 @@ spring:
             - id: class-service
               uri: lb://examsy-class-service
               predicates:
-                - Path=/api/v1/teacher/dashboard/classes/**,/api/v1/teacher/classes/**,/api/v1/student/dashboard/classes/**
+                - Path=/api/v1/teacher/dashboard/classes/**,/api/v1/teacher/dashboard/rotate-codes,/api/v1/teacher/classes/**,/api/v1/student/dashboard/classes/**
 
             # 5. Grading & AI Service
             - id: grading-service
               uri: lb://examsy-grading-service
               predicates:
-                - Path=/api/v1/teacher/exams/*/grade/**,/api/v1/teacher/exams/pending-gradings/**,/api/v1/mock-exams/**
+                - Path=/api/v1/teacher/exams/*/grade/**,/api/v1/teacher/exams/pending-gradings,/api/v1/teacher/exams/pending-gradings/**,/api/v1/mock-exams/**
 
             # 6. Exam & Proctoring Service
             - id: exam-service

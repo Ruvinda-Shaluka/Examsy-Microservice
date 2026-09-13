@@ -33,12 +33,22 @@ public class GatewayRoutesConfig {
 
                 // 4. Class & Course Management Service
                 .route("class-service", r -> r
-                        .path("/api/v1/teacher/dashboard/classes/**", "/api/v1/teacher/classes/**", "/api/v1/student/dashboard/classes/**")
+                        .path(
+                                "/api/v1/teacher/dashboard/classes/**",
+                                "/api/v1/teacher/dashboard/rotate-codes",
+                                "/api/v1/teacher/classes/**",
+                                "/api/v1/student/dashboard/classes/**"
+                        )
                         .uri("lb://examsy-class-service"))
 
                 // 5. Grading & AI Service (Evaluations & Approvals)
                 .route("grading-service", r -> r
-                        .path("/api/v1/teacher/exams/*/grade/**", "/api/v1/teacher/exams/pending-gradings/**", "/api/v1/mock-exams/**")
+                        .path(
+                                "/api/v1/teacher/exams/*/grade/**",
+                                "/api/v1/teacher/exams/pending-gradings",
+                                "/api/v1/teacher/exams/pending-gradings/**",
+                                "/api/v1/mock-exams/**"
+                        )
                         .uri("lb://examsy-grading-service"))
 
                 // 6. Exam & Proctoring Service
