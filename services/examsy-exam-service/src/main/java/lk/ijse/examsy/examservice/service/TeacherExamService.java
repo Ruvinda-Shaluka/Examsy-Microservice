@@ -15,4 +15,5 @@ public interface TeacherExamService {
     void warnStudent(Integer examId, Integer studentId, String teacherUsername, String message);
     ExamAnalyticsDTO getExamAnalytics(Integer examId, String teacherUsername);
     List<CalendarExamDTO> getTeacherCalendarExams(String teacherUsername);
+    void triggerUpcomingExamReminders(String teacherUsername);
 }

@@ -336,4 +336,10 @@ public class TeacherExamServiceImpl implements TeacherExamService {
                     .build();
         }).collect(Collectors.toList());
     }
+
+    @Transactional
+    @Override
+    public void triggerUpcomingExamReminders(String teacherUsername) {
+        log.info("Triggered upcoming exam reminders for teacher: {}", teacherUsername);
+    }
 }
