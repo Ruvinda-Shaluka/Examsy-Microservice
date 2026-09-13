@@ -215,11 +215,6 @@ public class TeacherExamServiceImpl implements TeacherExamService {
         return submissions.stream().map(sub -> {
             String name = sub.getStudentName() != null && !sub.getStudentName().isBlank() ?
                     sub.getStudentName() : sub.getStudentUsername();
-            int flags = sub.getSuspiciousEventCount() != null ? sub.getSuspiciousEventCount() : 0;
-            int awaySec = sub.getTotalTimeAwaySeconds() != null ? sub.getTotalTimeAwaySeconds() : 0;
-            String status = "IN_PROGRESS".equalsIgnoreCase(sub.getStatus()) || "ACTIVE".equalsIgnoreCase(sub.getStatus()) ?
-                    "active" : (sub.getStatus() != null ? sub.getStatus().toLowerCase() : "submitted");
-
             List<ProctoringLog> logs = proctoringLogRepository.findByExamSubmissionIdOrderByRecordedAtAsc(sub.getId());
             List<ProctoringLogDetailDTO> history = logs != null ? logs.stream().map(l -> ProctoringLogDetailDTO.builder()
                     .eventType(l.getEventType())
@@ -227,6 +222,19 @@ public class TeacherExamServiceImpl implements TeacherExamService {
                     .recordedAt(l.getRecordedAt())
                     .build()
             ).collect(Collectors.toList()) : Collections.emptyList();
+
+            int flags = sub.getSuspiciousEventCount() != null ? sub.getSuspiciousEventCount() : 0;
+            if (!history.isEmpty()) {
+                flags = Math.max(flags, history.size());
+            }
+
+            int awaySec = sub.getTotalTimeAwaySeconds() != null ? sub.getTotalTimeAwaySeconds() : 0;
+            if (awaySec == 0 && !history.isEmpty()) {
+                awaySec = history.stream().mapToInt(h -> h.getDurationSeconds() != null ? h.getDurationSeconds() : 0).sum();
+            }
+
+            String status = "IN_PROGRESS".equalsIgnoreCase(sub.getStatus()) || "ACTIVE".equalsIgnoreCase(sub.getStatus()) ?
+                    "active" : (sub.getStatus() != null ? sub.getStatus().toLowerCase() : "submitted");
 
             return LiveStudentMonitorDTO.builder()
                     .id(sub.getStudentId())
