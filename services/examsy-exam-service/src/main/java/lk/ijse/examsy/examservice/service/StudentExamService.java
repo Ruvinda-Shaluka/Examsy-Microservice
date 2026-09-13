@@ -9,4 +9,5 @@ public interface StudentExamService {
     ProctoringStatsDTO logProctoringEvent(Integer examId, String studentUsername, ProctoringLogDTO logDTO);
     void logSecurityViolation(String studentUsername, ProctoringDTO dto);
     StudentAnalyticsDTO getStudentAnalytics(String studentUsername);
+    java.util.List<CalendarExamDTO> getStudentCalendarExams(String studentUsername);
 }

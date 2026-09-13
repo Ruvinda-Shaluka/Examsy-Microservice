@@ -14,4 +14,5 @@ public interface TeacherExamService {
     void broadcastToExam(Integer examId, String teacherUsername, String message);
     void warnStudent(Integer examId, Integer studentId, String teacherUsername, String message);
     ExamAnalyticsDTO getExamAnalytics(Integer examId, String teacherUsername);
+    List<CalendarExamDTO> getTeacherCalendarExams(String teacherUsername);
 }

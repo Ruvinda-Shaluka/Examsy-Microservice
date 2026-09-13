@@ -397,5 +397,25 @@ public class StudentExamServiceImpl implements StudentExamService {
         log.warn("Security violation '{}' logged silently for student '{}' on exam ID {}",
                 dto.getViolationType(), studentUsername, dto.getExamId());
     }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<CalendarExamDTO> getStudentCalendarExams(String studentUsername) {
+        List<Exam> exams = examRepository.findAll();
+        return exams.stream().map(exam -> {
+            LocalDateTime displayDate = "REAL_TIME".equals(exam.getExamMode()) ?
+                    exam.getScheduledStartTime() : exam.getDeadlineTime();
+
+            return CalendarExamDTO.builder()
+                    .id(exam.getId())
+                    .classId(exam.getCourseId())
+                    .title(exam.getTitle())
+                    .courseName("Class #" + exam.getCourseId())
+                    .themeColorHex("#4F46E5")
+                    .examDate(displayDate)
+                    .examMode(exam.getExamMode())
+                    .build();
+        }).collect(Collectors.toList());
+    }
 }
 

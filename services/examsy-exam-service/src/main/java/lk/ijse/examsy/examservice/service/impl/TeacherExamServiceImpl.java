@@ -316,4 +316,24 @@ public class TeacherExamServiceImpl implements TeacherExamService {
                 .gradeDistribution(gradeDist)
                 .build();
     }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<CalendarExamDTO> getTeacherCalendarExams(String teacherUsername) {
+        List<Exam> exams = examRepository.findByTeacherUsername(teacherUsername);
+        return exams.stream().map(exam -> {
+            LocalDateTime displayDate = "REAL_TIME".equals(exam.getExamMode()) ?
+                    exam.getScheduledStartTime() : exam.getDeadlineTime();
+
+            return CalendarExamDTO.builder()
+                    .id(exam.getId())
+                    .classId(exam.getCourseId())
+                    .title(exam.getTitle())
+                    .courseName("Class #" + exam.getCourseId())
+                    .themeColorHex("#4F46E5")
+                    .examDate(displayDate)
+                    .examMode(exam.getExamMode())
+                    .build();
+        }).collect(Collectors.toList());
+    }
 }
