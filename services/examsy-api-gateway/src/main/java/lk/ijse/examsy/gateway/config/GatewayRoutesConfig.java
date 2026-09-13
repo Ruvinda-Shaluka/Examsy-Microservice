@@ -43,7 +43,12 @@ public class GatewayRoutesConfig {
 
                 // 5. Grading & AI Service (Evaluations & Approvals)
                 .route("grading-service", r -> r
-                        .path("/api/v1/teacher/exams/*/grade/**", "/api/v1/teacher/exams/pending-gradings/**", "/api/v1/mock-exams/**")
+                        .path(
+                                "/api/v1/teacher/exams/*/grade/**",
+                                "/api/v1/teacher/exams/pending-gradings",
+                                "/api/v1/teacher/exams/pending-gradings/**",
+                                "/api/v1/mock-exams/**"
+                        )
                         .uri("lb://examsy-grading-service"))
 
                 // 6. Exam & Proctoring Service
