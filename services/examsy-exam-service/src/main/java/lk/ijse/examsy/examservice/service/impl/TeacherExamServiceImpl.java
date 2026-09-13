@@ -212,52 +212,107 @@ public class TeacherExamServiceImpl implements TeacherExamService {
         List<ExamSubmission> completedSubs = examSubmissionRepository.findByExamIdAndStatus(examId, "SUBMITTED");
 
         if (completedSubs.isEmpty()) {
+            Map<String, Long> emptyDist = new LinkedHashMap<>();
+            emptyDist.put("A (85+)", 0L);
+            emptyDist.put("B (70-84)", 0L);
+            emptyDist.put("C (55-69)", 0L);
+            emptyDist.put("S (40-54)", 0L);
+            emptyDist.put("F (<40)", 0L);
             return ExamAnalyticsDTO.builder()
                     .examId(examId)
                     .title(exam.getTitle())
                     .totalParticipants(0)
+                    .totalStudents(0)
                     .averageScore(BigDecimal.ZERO)
                     .highestScore(BigDecimal.ZERO)
+                    .topScore(BigDecimal.ZERO)
+                    .topScorerName("N/A")
                     .lowestScore(BigDecimal.ZERO)
+                    .medianScore(BigDecimal.ZERO)
                     .passingRate(BigDecimal.ZERO)
-                    .gradeDistribution(Collections.emptyMap())
+                    .passRate(BigDecimal.ZERO)
+                    .participationRate(BigDecimal.ZERO)
+                    .atRiskCount(0)
+                    .gradeDistribution(emptyDist)
                     .build();
         }
 
         BigDecimal total = BigDecimal.ZERO;
         BigDecimal highest = BigDecimal.ZERO;
         BigDecimal lowest = BigDecimal.valueOf(1000);
+        String topScorer = "N/A";
         int passCount = 0;
-        Map<String, Long> gradeDist = new HashMap<>();
+        int atRisk = 0;
+        List<BigDecimal> allScores = new ArrayList<>();
+
+        Map<String, Long> gradeDist = new LinkedHashMap<>();
+        gradeDist.put("A (85+)", 0L);
+        gradeDist.put("B (70-84)", 0L);
+        gradeDist.put("C (55-69)", 0L);
+        gradeDist.put("S (40-54)", 0L);
+        gradeDist.put("F (<40)", 0L);
 
         for (ExamSubmission sub : completedSubs) {
             BigDecimal score = sub.getFinalScore() != null ? sub.getFinalScore() :
                     (sub.getCalculatedScore() != null ? sub.getCalculatedScore() : BigDecimal.ZERO);
 
             total = total.add(score);
-            if (score.compareTo(highest) > 0) highest = score;
-            if (score.compareTo(lowest) < 0) lowest = score;
+            allScores.add(score);
+            if (score.compareTo(highest) >= 0) {
+                highest = score;
+                topScorer = sub.getStudentName() != null ? sub.getStudentName() : sub.getStudentUsername();
+            }
+            if (score.compareTo(lowest) < 0) {
+                lowest = score;
+            }
+
+            if (score.compareTo(BigDecimal.valueOf(40)) < 0) {
+                atRisk++;
+            }
 
             if (exam.getMaxScore() != null && exam.getMaxScore().compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal pct = score.divide(exam.getMaxScore(), 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
                 if (pct.compareTo(BigDecimal.valueOf(50)) >= 0) passCount++;
             }
 
-            String grade = sub.getAwardedGradeLetter() != null ? sub.getAwardedGradeLetter() : "N/A";
-            gradeDist.put(grade, gradeDist.getOrDefault(grade, 0L) + 1);
+            if (score.compareTo(BigDecimal.valueOf(85)) >= 0) {
+                gradeDist.put("A (85+)", gradeDist.get("A (85+)") + 1);
+            } else if (score.compareTo(BigDecimal.valueOf(70)) >= 0) {
+                gradeDist.put("B (70-84)", gradeDist.get("B (70-84)") + 1);
+            } else if (score.compareTo(BigDecimal.valueOf(55)) >= 0) {
+                gradeDist.put("C (55-69)", gradeDist.get("C (55-69)") + 1);
+            } else if (score.compareTo(BigDecimal.valueOf(40)) >= 0) {
+                gradeDist.put("S (40-54)", gradeDist.get("S (40-54)") + 1);
+            } else {
+                gradeDist.put("F (<40)", gradeDist.get("F (<40)") + 1);
+            }
+        }
+
+        if (lowest.compareTo(BigDecimal.valueOf(1000)) == 0) {
+            lowest = BigDecimal.ZERO;
         }
 
         BigDecimal avg = total.divide(BigDecimal.valueOf(completedSubs.size()), 2, RoundingMode.HALF_UP);
         BigDecimal passRate = BigDecimal.valueOf(passCount * 100.0 / completedSubs.size()).setScale(2, RoundingMode.HALF_UP);
 
+        Collections.sort(allScores);
+        BigDecimal median = allScores.get(allScores.size() / 2);
+
         return ExamAnalyticsDTO.builder()
                 .examId(examId)
                 .title(exam.getTitle())
                 .totalParticipants(completedSubs.size())
+                .totalStudents(completedSubs.size())
                 .averageScore(avg)
                 .highestScore(highest)
+                .topScore(highest)
+                .topScorerName(topScorer)
                 .lowestScore(lowest)
+                .medianScore(median)
                 .passingRate(passRate)
+                .passRate(passRate)
+                .participationRate(BigDecimal.valueOf(100))
+                .atRiskCount(atRisk)
                 .gradeDistribution(gradeDist)
                 .build();
     }
