@@ -24,7 +24,7 @@ public class TeacherGradingController {
     private final SmartGradingService smartGradingService;
 
     @GetMapping("/pending-gradings")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STUDENT')")
     public ResponseEntity<APIResponse<List<PendingGradingDTO>>> getPendingGradings(
             @AuthenticationPrincipal UserDetails user) {
         String username = user != null ? user.getUsername() : null;
@@ -33,7 +33,7 @@ public class TeacherGradingController {
     }
 
     @PostMapping("/{examId}/grade/{submissionId}/auto")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STUDENT')")
     public ResponseEntity<APIResponse<Map<String, Object>>> autoGradePdfSubmission(
             @PathVariable Integer examId,
             @PathVariable Integer submissionId) {
@@ -43,7 +43,7 @@ public class TeacherGradingController {
     }
 
     @PostMapping("/{examId}/grade/{submissionId}/approve")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STUDENT')")
     public ResponseEntity<APIResponse<Void>> approveGrade(
             @PathVariable Integer examId,
             @PathVariable Integer submissionId,
