@@ -198,34 +198,74 @@ public class StudentExamServiceImpl implements StudentExamService {
     public VaultExamsResponseDTO getVaultExams(String studentUsername, Integer classId) {
         List<Exam> exams = examRepository.findByCourseId(classId);
 
+        List<VaultExamItemDTO> upcomingExams = new ArrayList<>();
+        List<VaultExamItemDTO> availableExams = new ArrayList<>();
         List<VaultExamItemDTO> completedExams = new ArrayList<>();
+
         for (Exam exam : exams) {
+            if (exam.getStatus() != null && !"PUBLISHED".equalsIgnoreCase(exam.getStatus())) {
+                continue;
+            }
+
             Optional<ExamSubmission> optSub = examSubmissionRepository.findByExamIdAndStudentUsername(exam.getId(), studentUsername);
+            String studentStatus = "NOT_STARTED";
+            boolean isCompleted = false;
+
+            BigDecimal score = BigDecimal.ZERO;
+            String gradeLetter = null;
+            LocalDateTime completedAt = null;
+            String feedback = null;
+
             if (optSub.isPresent()) {
                 ExamSubmission sub = optSub.get();
-                if ("SUBMITTED".equals(sub.getStatus())) {
-                    BigDecimal score = sub.getFinalScore() != null ? sub.getFinalScore() :
+                studentStatus = sub.getStatus() != null ? sub.getStatus() : "IN_PROGRESS";
+                if ("SUBMITTED".equalsIgnoreCase(sub.getStatus())) {
+                    isCompleted = true;
+                    score = sub.getFinalScore() != null ? sub.getFinalScore() :
                             (sub.getCalculatedScore() != null ? sub.getCalculatedScore() : BigDecimal.ZERO);
-
-                    completedExams.add(VaultExamItemDTO.builder()
-                            .examId(exam.getId())
-                            .title(exam.getTitle())
-                            .examType(exam.getExamType())
-                            .score(score)
-                            .maxScore(exam.getMaxScore())
-                            .gradeLetter(sub.getAwardedGradeLetter())
-                            .completedAt(sub.getSubmittedAt())
-                            .feedback(sub.getPdfFeedback())
-                            .build());
+                    gradeLetter = sub.getAwardedGradeLetter();
+                    completedAt = sub.getSubmittedAt();
+                    feedback = sub.getPdfFeedback();
                 }
+            }
+
+            VaultExamItemDTO item = VaultExamItemDTO.builder()
+                    .id(exam.getId())
+                    .examId(exam.getId())
+                    .title(exam.getTitle())
+                    .examType(exam.getExamType())
+                    .examMode(exam.getExamMode())
+                    .durationMinutes(exam.getDurationMinutes())
+                    .scheduledStartTime(exam.getScheduledStartTime())
+                    .deadlineTime(exam.getDeadlineTime())
+                    .status(exam.getStatus())
+                    .studentStatus(studentStatus)
+                    .score(score)
+                    .maxScore(exam.getMaxScore())
+                    .gradeLetter(gradeLetter)
+                    .completedAt(completedAt)
+                    .feedback(feedback)
+                    .build();
+
+            if (isCompleted) {
+                completedExams.add(item);
+            }
+
+            if ("REAL-TIME".equalsIgnoreCase(exam.getExamMode()) || "REAL_TIME".equalsIgnoreCase(exam.getExamMode())) {
+                upcomingExams.add(item);
+            } else {
+                availableExams.add(item);
             }
         }
 
         return VaultExamsResponseDTO.builder()
                 .classId(classId)
+                .upcomingExams(upcomingExams)
+                .availableExams(availableExams)
                 .completedExams(completedExams)
                 .build();
     }
+
 
     @Transactional(readOnly = true)
     @Override
