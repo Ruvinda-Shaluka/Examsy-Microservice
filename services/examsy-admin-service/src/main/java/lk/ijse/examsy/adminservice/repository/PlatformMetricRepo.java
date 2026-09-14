@@ -21,4 +21,14 @@ public interface PlatformMetricRepo extends JpaRepository<PlatformMetric, Intege
     @Modifying
     @Query("UPDATE PlatformMetric m SET m.metricValue = :val WHERE m.metricKey = :key")
     int setMetric(@Param("key") String key, @Param("val") long val);
+
+    @Query(value = "SELECT COUNT(*) FROM examsy_auth_db.user_accounts WHERE role = 'STUDENT'", nativeQuery = true)
+    long countLiveStudents();
+
+    @Query(value = "SELECT COUNT(*) FROM examsy_auth_db.user_accounts WHERE role = 'TEACHER'", nativeQuery = true)
+    long countLiveTeachers();
+
+    @Query(value = "SELECT COUNT(*) FROM examsy_auth_db.user_accounts", nativeQuery = true)
+    long countLiveUsers();
 }
+
