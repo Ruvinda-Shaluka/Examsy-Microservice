@@ -22,13 +22,36 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     private final PlatformMetricRepo metricRepository;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public AdminDashboardDTO getDashboardMetrics() {
         long totalStudents = getMetricValue("TOTAL_STUDENTS");
         long activeTeachers = getMetricValue("ACTIVE_TEACHERS");
         long totalUsers = getMetricValue("TOTAL_USERS");
-        long pendingReports = reportRepository.countByStatus("PENDING");
 
+        // Self-healing fallback: if metrics are uninitialized (0), query live user accounts
+        if (totalStudents == 0 && activeTeachers == 0) {
+            try {
+                long liveStudents = metricRepository.countLiveStudents();
+                long liveTeachers = metricRepository.countLiveTeachers();
+                long liveUsers = metricRepository.countLiveUsers();
+
+                if (liveStudents > 0 || liveTeachers > 0) {
+                    totalStudents = liveStudents;
+                    activeTeachers = liveTeachers;
+                    totalUsers = liveUsers;
+
+                    metricRepository.setMetric("TOTAL_STUDENTS", totalStudents);
+                    metricRepository.setMetric("ACTIVE_TEACHERS", activeTeachers);
+                    metricRepository.setMetric("TOTAL_USERS", totalUsers);
+                    log.info("Self-healed platform metrics from live auth database: students={}, teachers={}, users={}",
+                            totalStudents, activeTeachers, totalUsers);
+                }
+            } catch (Exception e) {
+                log.warn("Could not query live accounts across schemas: {}", e.getMessage());
+            }
+        }
+
+        long pendingReports = reportRepository.countByStatus("PENDING");
         List<ReportDistributionDTO> distribution = reportRepository.countReportsByCategory();
 
         return AdminDashboardDTO.builder()
@@ -39,6 +62,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .reportDistribution(distribution)
                 .build();
     }
+
 
     @Override
     @Transactional

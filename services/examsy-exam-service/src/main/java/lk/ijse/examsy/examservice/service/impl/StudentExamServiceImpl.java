@@ -198,34 +198,74 @@ public class StudentExamServiceImpl implements StudentExamService {
     public VaultExamsResponseDTO getVaultExams(String studentUsername, Integer classId) {
         List<Exam> exams = examRepository.findByCourseId(classId);
 
+        List<VaultExamItemDTO> upcomingExams = new ArrayList<>();
+        List<VaultExamItemDTO> availableExams = new ArrayList<>();
         List<VaultExamItemDTO> completedExams = new ArrayList<>();
+
         for (Exam exam : exams) {
+            if (exam.getStatus() != null && !"PUBLISHED".equalsIgnoreCase(exam.getStatus())) {
+                continue;
+            }
+
             Optional<ExamSubmission> optSub = examSubmissionRepository.findByExamIdAndStudentUsername(exam.getId(), studentUsername);
+            String studentStatus = "NOT_STARTED";
+            boolean isCompleted = false;
+
+            BigDecimal score = BigDecimal.ZERO;
+            String gradeLetter = null;
+            LocalDateTime completedAt = null;
+            String feedback = null;
+
             if (optSub.isPresent()) {
                 ExamSubmission sub = optSub.get();
-                if ("SUBMITTED".equals(sub.getStatus())) {
-                    BigDecimal score = sub.getFinalScore() != null ? sub.getFinalScore() :
+                studentStatus = sub.getStatus() != null ? sub.getStatus() : "IN_PROGRESS";
+                if ("SUBMITTED".equalsIgnoreCase(sub.getStatus())) {
+                    isCompleted = true;
+                    score = sub.getFinalScore() != null ? sub.getFinalScore() :
                             (sub.getCalculatedScore() != null ? sub.getCalculatedScore() : BigDecimal.ZERO);
-
-                    completedExams.add(VaultExamItemDTO.builder()
-                            .examId(exam.getId())
-                            .title(exam.getTitle())
-                            .examType(exam.getExamType())
-                            .score(score)
-                            .maxScore(exam.getMaxScore())
-                            .gradeLetter(sub.getAwardedGradeLetter())
-                            .completedAt(sub.getSubmittedAt())
-                            .feedback(sub.getPdfFeedback())
-                            .build());
+                    gradeLetter = sub.getAwardedGradeLetter();
+                    completedAt = sub.getSubmittedAt();
+                    feedback = sub.getPdfFeedback();
                 }
+            }
+
+            VaultExamItemDTO item = VaultExamItemDTO.builder()
+                    .id(exam.getId())
+                    .examId(exam.getId())
+                    .title(exam.getTitle())
+                    .examType(exam.getExamType())
+                    .examMode(exam.getExamMode())
+                    .durationMinutes(exam.getDurationMinutes())
+                    .scheduledStartTime(exam.getScheduledStartTime())
+                    .deadlineTime(exam.getDeadlineTime())
+                    .status(exam.getStatus())
+                    .studentStatus(studentStatus)
+                    .score(score)
+                    .maxScore(exam.getMaxScore())
+                    .gradeLetter(gradeLetter)
+                    .completedAt(completedAt)
+                    .feedback(feedback)
+                    .build();
+
+            if (isCompleted) {
+                completedExams.add(item);
+            }
+
+            if ("REAL-TIME".equalsIgnoreCase(exam.getExamMode()) || "REAL_TIME".equalsIgnoreCase(exam.getExamMode())) {
+                upcomingExams.add(item);
+            } else {
+                availableExams.add(item);
             }
         }
 
         return VaultExamsResponseDTO.builder()
                 .classId(classId)
+                .upcomingExams(upcomingExams)
+                .availableExams(availableExams)
                 .completedExams(completedExams)
                 .build();
     }
+
 
     @Transactional(readOnly = true)
     @Override
@@ -233,6 +273,7 @@ public class StudentExamServiceImpl implements StudentExamService {
         List<ExamSubmission> submissions = examSubmissionRepository.findByStudentUsername(studentUsername);
         List<ExamSubmission> completed = submissions.stream()
                 .filter(s -> "SUBMITTED".equals(s.getStatus()))
+                .sorted(Comparator.comparing(ExamSubmission::getSubmittedAt, Comparator.nullsLast(Comparator.naturalOrder())))
                 .collect(Collectors.toList());
 
         if (completed.isEmpty()) {
@@ -242,29 +283,62 @@ public class StudentExamServiceImpl implements StudentExamService {
                     .totalHonorsReceived(0)
                     .suspiciousEventsCount(0)
                     .integrityScore(BigDecimal.valueOf(100))
+                    .gpa(BigDecimal.ZERO)
+                    .bestScore("N/A")
+                    .bestExam("None")
+                    .lowestScore("N/A")
+                    .lowestExam("None")
+                    .rankText("0 Exams")
+                    .rankSubText("No completed exams yet")
+                    .chartData(Collections.emptyList())
                     .build();
         }
 
         BigDecimal totalPercentage = BigDecimal.ZERO;
         int honorsCount = 0;
         int totalSuspicious = 0;
+        BigDecimal highestPct = BigDecimal.ZERO;
+        String bestExamTitle = "N/A";
+        BigDecimal lowestPct = BigDecimal.valueOf(1000);
+        String lowestExamTitle = "N/A";
+        List<StudentChartPointDTO> chartData = new ArrayList<>();
 
         for (ExamSubmission sub : completed) {
             BigDecimal score = sub.getFinalScore() != null ? sub.getFinalScore() :
                     (sub.getCalculatedScore() != null ? sub.getCalculatedScore() : BigDecimal.ZERO);
-            BigDecimal max = sub.getExam().getMaxScore() != null ? sub.getExam().getMaxScore() : BigDecimal.valueOf(100);
+            BigDecimal max = (sub.getExam() != null && sub.getExam().getMaxScore() != null && sub.getExam().getMaxScore().compareTo(BigDecimal.ZERO) > 0)
+                    ? sub.getExam().getMaxScore() : BigDecimal.valueOf(100);
 
-            if (max.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal pct = score.divide(max, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
-                totalPercentage = totalPercentage.add(pct);
-                if (pct.compareTo(BigDecimal.valueOf(80)) >= 0) {
-                    honorsCount++;
-                }
+            BigDecimal pct = score.divide(max, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP);
+            totalPercentage = totalPercentage.add(pct);
+
+            if (pct.compareTo(BigDecimal.valueOf(80)) >= 0) {
+                honorsCount++;
+            }
+
+            if (pct.compareTo(highestPct) >= 0) {
+                highestPct = pct;
+                bestExamTitle = (sub.getExam() != null && sub.getExam().getTitle() != null) ? sub.getExam().getTitle() : "Exam #" + (sub.getExam() != null ? sub.getExam().getId() : sub.getId());
+            }
+
+            if (pct.compareTo(lowestPct) <= 0) {
+                lowestPct = pct;
+                lowestExamTitle = (sub.getExam() != null && sub.getExam().getTitle() != null) ? sub.getExam().getTitle() : "Exam #" + (sub.getExam() != null ? sub.getExam().getId() : sub.getId());
             }
 
             if (sub.getSuspiciousEventCount() != null) {
                 totalSuspicious += sub.getSuspiciousEventCount();
             }
+
+            String examLabel = (sub.getExam() != null && sub.getExam().getTitle() != null) ? sub.getExam().getTitle() : "Exam #" + (sub.getExam() != null ? sub.getExam().getId() : sub.getId());
+            chartData.add(StudentChartPointDTO.builder()
+                    .exam(examLabel)
+                    .score(pct)
+                    .build());
+        }
+
+        if (lowestPct.compareTo(BigDecimal.valueOf(1000)) == 0) {
+            lowestPct = BigDecimal.ZERO;
         }
 
         BigDecimal avgPct = totalPercentage.divide(BigDecimal.valueOf(completed.size()), 2, RoundingMode.HALF_UP);
@@ -272,12 +346,24 @@ public class StudentExamServiceImpl implements StudentExamService {
         BigDecimal integrity = BigDecimal.valueOf(100).subtract(penalty);
         if (integrity.compareTo(BigDecimal.ZERO) < 0) integrity = BigDecimal.ZERO;
 
+        BigDecimal gpa = avgPct.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(4.0))
+                .setScale(2, RoundingMode.HALF_UP);
+
         return StudentAnalyticsDTO.builder()
                 .totalExamsTaken(completed.size())
                 .averageScorePercentage(avgPct)
                 .totalHonorsReceived(honorsCount)
                 .suspiciousEventsCount(totalSuspicious)
                 .integrityScore(integrity)
+                .gpa(gpa)
+                .bestScore(highestPct + "%")
+                .bestExam(bestExamTitle)
+                .lowestScore(lowestPct + "%")
+                .lowestExam(lowestExamTitle)
+                .rankText(completed.size() + " Exams")
+                .rankSubText("Average: " + avgPct + "%")
+                .chartData(chartData)
                 .build();
     }
 
@@ -350,6 +436,26 @@ public class StudentExamServiceImpl implements StudentExamService {
         examSubmissionRepository.save(submission);
         log.warn("Security violation '{}' logged silently for student '{}' on exam ID {}",
                 dto.getViolationType(), studentUsername, dto.getExamId());
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<CalendarExamDTO> getStudentCalendarExams(String studentUsername) {
+        List<Exam> exams = examRepository.findAll();
+        return exams.stream().map(exam -> {
+            LocalDateTime displayDate = "REAL_TIME".equals(exam.getExamMode()) ?
+                    exam.getScheduledStartTime() : exam.getDeadlineTime();
+
+            return CalendarExamDTO.builder()
+                    .id(exam.getId())
+                    .classId(exam.getCourseId())
+                    .title(exam.getTitle())
+                    .courseName("Class #" + exam.getCourseId())
+                    .themeColorHex("#4F46E5")
+                    .examDate(displayDate)
+                    .examMode(exam.getExamMode())
+                    .build();
+        }).collect(Collectors.toList());
     }
 }
 

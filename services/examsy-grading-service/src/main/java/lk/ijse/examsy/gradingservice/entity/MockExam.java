@@ -33,7 +33,7 @@ public class MockExam {
     private String difficulty;
 
     @CreationTimestamp
-    @Column(name = "generated_at", updatable = false)
+    @Column(name = "generated_at", nullable = false, updatable = false)
     private LocalDateTime generatedAt;
 
     @OneToMany(mappedBy = "mockExam", cascade = CascadeType.ALL, orphanRemoval = true)

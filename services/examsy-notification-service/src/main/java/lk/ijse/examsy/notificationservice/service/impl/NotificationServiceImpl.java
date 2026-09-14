@@ -27,7 +27,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public List<NotificationDTO> getMyNotifications(String username) {
         log.info("Fetching notifications feed for user '{}'", username);
-        return notificationRepo.findByUsernameOrderByCreatedAtDesc(username)
+        return notificationRepo.findByUserOrEmailOrderByCreatedAtDesc(username)
                 .stream()
                 .map(n -> NotificationDTO.builder()
                         .id(n.getId())
@@ -43,7 +43,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional(readOnly = true)
     @Override
     public long getUnreadCount(String username) {
-        long count = notificationRepo.countByUsernameAndIsReadFalse(username);
+        long count = notificationRepo.countByUserOrEmailAndIsReadFalse(username);
         log.info("Unread notifications count for user '{}': {}", username, count);
         return count;
     }
@@ -55,7 +55,7 @@ public class NotificationServiceImpl implements NotificationService {
         Notification notification = notificationRepo.findById(notificationId)
                 .orElseThrow(() -> new RuntimeException("Notification not found with ID: " + notificationId));
 
-        if (!notification.getUsername().equals(username)) {
+        if (!notification.getUsername().equals(username) && !username.equals(notification.getRecipientEmail())) {
             throw new RuntimeException("Unauthorized: Cannot mark notifications belonging to other users.");
         }
 
@@ -67,10 +67,11 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public void markAllAsRead(String username) {
         log.info("Marking all notifications as read for user '{}'", username);
-        List<Notification> unread = notificationRepo.findByUsernameAndIsReadFalse(username);
+        List<Notification> unread = notificationRepo.findByUserOrEmailAndIsReadFalse(username);
         unread.forEach(n -> n.setIsRead(true));
         notificationRepo.saveAll(unread);
     }
+
 
     @Transactional
     @Override

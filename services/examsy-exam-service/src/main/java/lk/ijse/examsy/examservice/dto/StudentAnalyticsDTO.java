@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -17,4 +18,13 @@ public class StudentAnalyticsDTO {
     private Integer totalHonorsReceived;
     private Integer suspiciousEventsCount;
     private BigDecimal integrityScore;
+
+    private BigDecimal gpa;
+    private String bestScore;
+    private String bestExam;
+    private String lowestScore;
+    private String lowestExam;
+    private String rankText;
+    private String rankSubText;
+    private List<StudentChartPointDTO> chartData;
 }

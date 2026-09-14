@@ -13,5 +13,8 @@ import java.util.List;
 @Builder
 public class VaultExamsResponseDTO {
     private Integer classId;
+    private List<VaultExamItemDTO> upcomingExams;
+    private List<VaultExamItemDTO> availableExams;
     private List<VaultExamItemDTO> completedExams;
 }
+

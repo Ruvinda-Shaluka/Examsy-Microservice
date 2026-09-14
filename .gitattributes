@@ -1,0 +1,8 @@
+# Ensure Unix shell scripts always keep LF line endings across all platforms
+* text=auto eol=lf
+mvnw text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sql text eol=lf
+*.properties text eol=lf

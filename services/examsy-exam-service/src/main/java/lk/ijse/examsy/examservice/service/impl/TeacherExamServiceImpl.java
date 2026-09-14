@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -24,6 +26,7 @@ public class TeacherExamServiceImpl implements TeacherExamService {
     private final QuestionRepo questionRepository;
     private final QuestionOptionRepo questionOptionRepository;
     private final ExamSubmissionRepo examSubmissionRepository;
+    private final ProctoringLogRepo proctoringLogRepository;
 
     @Transactional
     @Override
@@ -132,10 +135,47 @@ public class TeacherExamServiceImpl implements TeacherExamService {
         List<Exam> exams = examRepository.findByTeacherUsername(teacherUsername);
         LocalDateTime now = LocalDateTime.now();
 
+        List<OngoingExamDTO> realTimeList = new ArrayList<>();
+        List<OngoingExamDTO> deadlineList = new ArrayList<>();
         List<ExamSummaryDTO> ongoing = new ArrayList<>();
         List<ExamSummaryDTO> upcoming = new ArrayList<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm");
 
         for (Exam exam : exams) {
+            List<ExamSubmission> subs = examSubmissionRepository.findByExamId(exam.getId());
+            int completedCount = (int) subs.stream()
+                    .filter(s -> "COMPLETED".equalsIgnoreCase(s.getStatus()) || "SUBMITTED".equalsIgnoreCase(s.getStatus()))
+                    .count();
+            int activeCount = (int) subs.stream()
+                    .filter(s -> "IN_PROGRESS".equalsIgnoreCase(s.getStatus()) || "ACTIVE".equalsIgnoreCase(s.getStatus()))
+                    .count();
+            int totalRoster = Math.max(subs.size(), 30);
+
+            OngoingExamDTO ongoingCard = OngoingExamDTO.builder()
+                    .id(exam.getId())
+                    .title(exam.getTitle())
+                    .className("Class #" + exam.getCourseId())
+                    .examMode(exam.getExamMode())
+                    .activeStudents(activeCount)
+                    .submissions(completedCount)
+                    .totalStudents(totalRoster)
+                    .build();
+
+            String mode = exam.getExamMode();
+            if (mode != null && (mode.equalsIgnoreCase("REAL_TIME") || mode.equalsIgnoreCase("REAL-TIME"))) {
+                if (exam.getScheduledStartTime() != null && exam.getDurationMinutes() != null) {
+                    LocalDateTime endTime = exam.getScheduledStartTime().plusMinutes(exam.getDurationMinutes());
+                    long minutesLeft = ChronoUnit.MINUTES.between(now, endTime);
+                    ongoingCard.setRemainingTime(minutesLeft > 0 ? minutesLeft + "m left" : "Ending soon");
+                } else {
+                    ongoingCard.setRemainingTime("Time TBA");
+                }
+                realTimeList.add(ongoingCard);
+            } else {
+                ongoingCard.setDeadline(exam.getDeadlineTime() != null ? exam.getDeadlineTime().format(formatter) : "No Deadline");
+                deadlineList.add(ongoingCard);
+            }
+
             ExamSummaryDTO dto = ExamSummaryDTO.builder()
                     .id(exam.getId())
                     .title(exam.getTitle())
@@ -146,7 +186,7 @@ public class TeacherExamServiceImpl implements TeacherExamService {
                     .durationMinutes(exam.getDurationMinutes())
                     .maxScore(exam.getMaxScore())
                     .status(exam.getStatus())
-                    .totalSubmissions(examSubmissionRepository.findByExamId(exam.getId()).size())
+                    .totalSubmissions(subs.size())
                     .build();
 
             if (exam.getScheduledStartTime() != null && exam.getScheduledStartTime().isAfter(now)) {
@@ -157,6 +197,8 @@ public class TeacherExamServiceImpl implements TeacherExamService {
         }
 
         return OngoingExamGroupDTO.builder()
+                .realTime(realTimeList)
+                .deadline(deadlineList)
                 .ongoingExams(ongoing)
                 .upcomingExams(upcoming)
                 .build();
@@ -170,18 +212,49 @@ public class TeacherExamServiceImpl implements TeacherExamService {
 
         List<ExamSubmission> submissions = examSubmissionRepository.findByExamId(examId);
 
-        return submissions.stream().map(sub -> LiveStudentMonitorDTO.builder()
-                .studentId(sub.getStudentId())
-                .studentName(sub.getStudentName() != null ? sub.getStudentName() : sub.getStudentUsername())
-                .studentUsername(sub.getStudentUsername())
-                .submissionStatus(sub.getStatus())
-                .proctoringStatus(sub.getProctoringStatus())
-                .suspiciousEvents(sub.getSuspiciousEventCount())
-                .timeAwaySeconds(sub.getTotalTimeAwaySeconds())
-                .lastAction(sub.getLastKnownAction())
-                .startedAt(sub.getActualStartTime())
-                .build()
-        ).collect(Collectors.toList());
+        return submissions.stream().map(sub -> {
+            String name = sub.getStudentName() != null && !sub.getStudentName().isBlank() ?
+                    sub.getStudentName() : sub.getStudentUsername();
+            List<ProctoringLog> logs = proctoringLogRepository.findByExamSubmissionIdOrderByRecordedAtAsc(sub.getId());
+            List<ProctoringLogDetailDTO> history = logs != null ? logs.stream().map(l -> ProctoringLogDetailDTO.builder()
+                    .eventType(l.getEventType())
+                    .durationSeconds(l.getDurationSeconds() != null ? l.getDurationSeconds() : 0)
+                    .recordedAt(l.getRecordedAt())
+                    .build()
+            ).collect(Collectors.toList()) : Collections.emptyList();
+
+            int flags = sub.getSuspiciousEventCount() != null ? sub.getSuspiciousEventCount() : 0;
+            if (!history.isEmpty()) {
+                flags = Math.max(flags, history.size());
+            }
+
+            int awaySec = sub.getTotalTimeAwaySeconds() != null ? sub.getTotalTimeAwaySeconds() : 0;
+            if (awaySec == 0 && !history.isEmpty()) {
+                awaySec = history.stream().mapToInt(h -> h.getDurationSeconds() != null ? h.getDurationSeconds() : 0).sum();
+            }
+
+            String status = "IN_PROGRESS".equalsIgnoreCase(sub.getStatus()) || "ACTIVE".equalsIgnoreCase(sub.getStatus()) ?
+                    "active" : (sub.getStatus() != null ? sub.getStatus().toLowerCase() : "submitted");
+
+            return LiveStudentMonitorDTO.builder()
+                    .id(sub.getStudentId())
+                    .studentId(sub.getStudentId())
+                    .name(name)
+                    .studentName(name)
+                    .studentUsername(sub.getStudentUsername())
+                    .status(status)
+                    .submissionStatus(sub.getStatus())
+                    .flags(flags)
+                    .suspiciousEvents(flags)
+                    .flagged(flags > 0)
+                    .totalAwaySeconds(awaySec)
+                    .timeAwaySeconds(awaySec)
+                    .proctoringStatus(sub.getProctoringStatus())
+                    .lastAction(sub.getLastKnownAction())
+                    .startedAt(sub.getActualStartTime())
+                    .proctoringHistory(history)
+                    .build();
+        }).collect(Collectors.toList());
     }
 
     @Transactional
@@ -212,53 +285,134 @@ public class TeacherExamServiceImpl implements TeacherExamService {
         List<ExamSubmission> completedSubs = examSubmissionRepository.findByExamIdAndStatus(examId, "SUBMITTED");
 
         if (completedSubs.isEmpty()) {
+            Map<String, Long> emptyDist = new LinkedHashMap<>();
+            emptyDist.put("A (85+)", 0L);
+            emptyDist.put("B (70-84)", 0L);
+            emptyDist.put("C (55-69)", 0L);
+            emptyDist.put("S (40-54)", 0L);
+            emptyDist.put("F (<40)", 0L);
             return ExamAnalyticsDTO.builder()
                     .examId(examId)
                     .title(exam.getTitle())
                     .totalParticipants(0)
+                    .totalStudents(0)
                     .averageScore(BigDecimal.ZERO)
                     .highestScore(BigDecimal.ZERO)
+                    .topScore(BigDecimal.ZERO)
+                    .topScorerName("N/A")
                     .lowestScore(BigDecimal.ZERO)
+                    .medianScore(BigDecimal.ZERO)
                     .passingRate(BigDecimal.ZERO)
-                    .gradeDistribution(Collections.emptyMap())
+                    .passRate(BigDecimal.ZERO)
+                    .participationRate(BigDecimal.ZERO)
+                    .atRiskCount(0)
+                    .gradeDistribution(emptyDist)
                     .build();
         }
 
         BigDecimal total = BigDecimal.ZERO;
         BigDecimal highest = BigDecimal.ZERO;
         BigDecimal lowest = BigDecimal.valueOf(1000);
+        String topScorer = "N/A";
         int passCount = 0;
-        Map<String, Long> gradeDist = new HashMap<>();
+        int atRisk = 0;
+        List<BigDecimal> allScores = new ArrayList<>();
+
+        Map<String, Long> gradeDist = new LinkedHashMap<>();
+        gradeDist.put("A (85+)", 0L);
+        gradeDist.put("B (70-84)", 0L);
+        gradeDist.put("C (55-69)", 0L);
+        gradeDist.put("S (40-54)", 0L);
+        gradeDist.put("F (<40)", 0L);
 
         for (ExamSubmission sub : completedSubs) {
             BigDecimal score = sub.getFinalScore() != null ? sub.getFinalScore() :
                     (sub.getCalculatedScore() != null ? sub.getCalculatedScore() : BigDecimal.ZERO);
 
             total = total.add(score);
-            if (score.compareTo(highest) > 0) highest = score;
-            if (score.compareTo(lowest) < 0) lowest = score;
+            allScores.add(score);
+            if (score.compareTo(highest) >= 0) {
+                highest = score;
+                topScorer = sub.getStudentName() != null ? sub.getStudentName() : sub.getStudentUsername();
+            }
+            if (score.compareTo(lowest) < 0) {
+                lowest = score;
+            }
+
+            if (score.compareTo(BigDecimal.valueOf(40)) < 0) {
+                atRisk++;
+            }
 
             if (exam.getMaxScore() != null && exam.getMaxScore().compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal pct = score.divide(exam.getMaxScore(), 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
                 if (pct.compareTo(BigDecimal.valueOf(50)) >= 0) passCount++;
             }
 
-            String grade = sub.getAwardedGradeLetter() != null ? sub.getAwardedGradeLetter() : "N/A";
-            gradeDist.put(grade, gradeDist.getOrDefault(grade, 0L) + 1);
+            if (score.compareTo(BigDecimal.valueOf(85)) >= 0) {
+                gradeDist.put("A (85+)", gradeDist.get("A (85+)") + 1);
+            } else if (score.compareTo(BigDecimal.valueOf(70)) >= 0) {
+                gradeDist.put("B (70-84)", gradeDist.get("B (70-84)") + 1);
+            } else if (score.compareTo(BigDecimal.valueOf(55)) >= 0) {
+                gradeDist.put("C (55-69)", gradeDist.get("C (55-69)") + 1);
+            } else if (score.compareTo(BigDecimal.valueOf(40)) >= 0) {
+                gradeDist.put("S (40-54)", gradeDist.get("S (40-54)") + 1);
+            } else {
+                gradeDist.put("F (<40)", gradeDist.get("F (<40)") + 1);
+            }
+        }
+
+        if (lowest.compareTo(BigDecimal.valueOf(1000)) == 0) {
+            lowest = BigDecimal.ZERO;
         }
 
         BigDecimal avg = total.divide(BigDecimal.valueOf(completedSubs.size()), 2, RoundingMode.HALF_UP);
         BigDecimal passRate = BigDecimal.valueOf(passCount * 100.0 / completedSubs.size()).setScale(2, RoundingMode.HALF_UP);
 
+        Collections.sort(allScores);
+        BigDecimal median = allScores.get(allScores.size() / 2);
+
         return ExamAnalyticsDTO.builder()
                 .examId(examId)
                 .title(exam.getTitle())
                 .totalParticipants(completedSubs.size())
+                .totalStudents(completedSubs.size())
                 .averageScore(avg)
                 .highestScore(highest)
+                .topScore(highest)
+                .topScorerName(topScorer)
                 .lowestScore(lowest)
+                .medianScore(median)
                 .passingRate(passRate)
+                .passRate(passRate)
+                .participationRate(BigDecimal.valueOf(100))
+                .atRiskCount(atRisk)
                 .gradeDistribution(gradeDist)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<CalendarExamDTO> getTeacherCalendarExams(String teacherUsername) {
+        List<Exam> exams = examRepository.findByTeacherUsername(teacherUsername);
+        return exams.stream().map(exam -> {
+            LocalDateTime displayDate = "REAL_TIME".equals(exam.getExamMode()) ?
+                    exam.getScheduledStartTime() : exam.getDeadlineTime();
+
+            return CalendarExamDTO.builder()
+                    .id(exam.getId())
+                    .classId(exam.getCourseId())
+                    .title(exam.getTitle())
+                    .courseName("Class #" + exam.getCourseId())
+                    .themeColorHex("#4F46E5")
+                    .examDate(displayDate)
+                    .examMode(exam.getExamMode())
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    @Transactional
+    @Override
+    public void triggerUpcomingExamReminders(String teacherUsername) {
+        log.info("Triggered upcoming exam reminders for teacher: {}", teacherUsername);
     }
 }

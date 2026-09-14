@@ -1,0 +1,332 @@
+# ===================================================================
+# Examsy Domain Services: Auth, Profile, Class, Exam, Grading,
+# Notification, and Admin Microservices
+# ===================================================================
+
+# ── 1. Auth Service (Port 8081) ──────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: examsy-auth-service
+  namespace: examsy
+spec:
+  ports:
+    - port: 8081
+      name: http
+  selector:
+    app: examsy-auth-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: examsy-auth-service
+  namespace: examsy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: examsy-auth-service
+  template:
+    metadata:
+      labels:
+        app: examsy-auth-service
+    spec:
+      containers:
+        - name: auth-service
+          image: ghcr.io/ruvinda-shaluka/examsy-auth-service:latest
+          envFrom:
+            - configMapRef:
+                name: examsy-global-config
+            - secretRef:
+                name: examsy-secrets
+          ports:
+            - containerPort: 8081
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "150m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+
+# ── 2. User Profile Service (Port 8082) ──────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: examsy-profile-service
+  namespace: examsy
+spec:
+  ports:
+    - port: 8082
+      name: http
+  selector:
+    app: examsy-profile-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: examsy-profile-service
+  namespace: examsy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: examsy-profile-service
+  template:
+    metadata:
+      labels:
+        app: examsy-profile-service
+    spec:
+      containers:
+        - name: profile-service
+          image: ghcr.io/ruvinda-shaluka/examsy-profile-service:latest
+          envFrom:
+            - configMapRef:
+                name: examsy-global-config
+            - secretRef:
+                name: examsy-secrets
+          ports:
+            - containerPort: 8082
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "150m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+
+# ── 3. Class & Course Service (Port 8083) ────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: examsy-class-service
+  namespace: examsy
+spec:
+  ports:
+    - port: 8083
+      name: http
+  selector:
+    app: examsy-class-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: examsy-class-service
+  namespace: examsy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: examsy-class-service
+  template:
+    metadata:
+      labels:
+        app: examsy-class-service
+    spec:
+      containers:
+        - name: class-service
+          image: ghcr.io/ruvinda-shaluka/examsy-class-service:latest
+          envFrom:
+            - configMapRef:
+                name: examsy-global-config
+            - secretRef:
+                name: examsy-secrets
+          ports:
+            - containerPort: 8083
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "150m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+
+# ── 4. Exam & Proctoring Service (Port 8084) ─────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: examsy-exam-service
+  namespace: examsy
+spec:
+  ports:
+    - port: 8084
+      name: http
+  selector:
+    app: examsy-exam-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: examsy-exam-service
+  namespace: examsy
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: examsy-exam-service
+  template:
+    metadata:
+      labels:
+        app: examsy-exam-service
+    spec:
+      containers:
+        - name: exam-service
+          image: ghcr.io/ruvinda-shaluka/examsy-exam-service:latest
+          envFrom:
+            - configMapRef:
+                name: examsy-global-config
+            - secretRef:
+                name: examsy-secrets
+          ports:
+            - containerPort: 8084
+          resources:
+            requests:
+              memory: "384Mi"
+              cpu: "250m"
+            limits:
+              memory: "768Mi"
+              cpu: "1000m"
+---
+
+# ── 5. AI Grading & OCR Service (Port 8085) ──────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: examsy-grading-service
+  namespace: examsy
+spec:
+  ports:
+    - port: 8085
+      name: http
+  selector:
+    app: examsy-grading-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: examsy-grading-service
+  namespace: examsy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: examsy-grading-service
+  template:
+    metadata:
+      labels:
+        app: examsy-grading-service
+    spec:
+      containers:
+        - name: grading-service
+          image: ghcr.io/ruvinda-shaluka/examsy-grading-service:latest
+          envFrom:
+            - configMapRef:
+                name: examsy-global-config
+            - secretRef:
+                name: examsy-secrets
+          ports:
+            - containerPort: 8085
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "300m"
+            limits:
+              memory: "1024Mi"
+              cpu: "1500m"
+---
+
+# ── 6. Notification & Alert Service (Port 8086) ──────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: examsy-notification-service
+  namespace: examsy
+spec:
+  ports:
+    - port: 8086
+      name: http
+  selector:
+    app: examsy-notification-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: examsy-notification-service
+  namespace: examsy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: examsy-notification-service
+  template:
+    metadata:
+      labels:
+        app: examsy-notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: ghcr.io/ruvinda-shaluka/examsy-notification-service:latest
+          envFrom:
+            - configMapRef:
+                name: examsy-global-config
+            - secretRef:
+                name: examsy-secrets
+          ports:
+            - containerPort: 8086
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "150m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+
+# ── 7. Admin & Analytics Service (Port 8087) ─────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: examsy-admin-service
+  namespace: examsy
+spec:
+  ports:
+    - port: 8087
+      name: http
+  selector:
+    app: examsy-admin-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: examsy-admin-service
+  namespace: examsy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: examsy-admin-service
+  template:
+    metadata:
+      labels:
+        app: examsy-admin-service
+    spec:
+      containers:
+        - name: admin-service
+          image: ghcr.io/ruvinda-shaluka/examsy-admin-service:latest
+          envFrom:
+            - configMapRef:
+                name: examsy-global-config
+            - secretRef:
+                name: examsy-secrets
+          ports:
+            - containerPort: 8087
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "150m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

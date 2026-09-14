@@ -55,7 +55,7 @@ public class Report {
     private String description;
 
     @Builder.Default
-    @Column(length = 30)
+    @Column(nullable = false, length = 30)
     private String status = "PENDING";
 
     @Column(name = "admin_notes", columnDefinition = "TEXT")

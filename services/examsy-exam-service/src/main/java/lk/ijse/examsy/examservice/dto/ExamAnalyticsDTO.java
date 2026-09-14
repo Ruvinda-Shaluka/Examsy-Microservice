@@ -21,4 +21,12 @@ public class ExamAnalyticsDTO {
     private BigDecimal lowestScore;
     private BigDecimal passingRate;
     private Map<String, Long> gradeDistribution;
+
+    private String topScorerName;
+    private BigDecimal topScore;
+    private BigDecimal medianScore;
+    private Integer totalStudents;
+    private BigDecimal participationRate;
+    private Integer atRiskCount;
+    private BigDecimal passRate;
 }
