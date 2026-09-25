@@ -1,5 +1,7 @@
 # Examsy — Microservices Architecture
 
+[![Watch a one-minute video tour of examsy-microservice](https://gitdiagram.com/video-badge.svg)](https://gitdiagram.com/ruvinda-shaluka/examsy-microservice/video)
+
 This directory houses the microservices migration for the **Examsy Examination Platform**.
 
 ## Project Structure
@@ -31,7 +33,23 @@ Examsy-Microservice/
 
 ## System Architecture
 
+> 🎬 **Architecture Walkthrough:** [![Watch a one-minute video tour of examsy-microservice](https://gitdiagram.com/video-badge.svg)](https://gitdiagram.com/ruvinda-shaluka/examsy-microservice/video) *(Local video file: [`media/ruvinda-shaluka-examsy-microservice-explained.mp4`](media/ruvinda-shaluka-examsy-microservice-explained.mp4))*
+
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#ffffff',
+    'fontSize': '15px'
+  },
+  'flowchart': {
+    'defaultRenderer': 'dagre',
+    'nodeSpacing': 50,
+    'rankSpacing': 90,
+    'curve': 'basis',
+    'useMaxWidth': false
+  }
+}}%%
 flowchart TD
 
 subgraph group_edge["Entry and identity"]
