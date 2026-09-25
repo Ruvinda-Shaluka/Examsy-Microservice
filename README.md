@@ -150,3 +150,4 @@ class node_submissionevent,node_grading,node_ocr,node_gradeevent toneMint
 class node_profile,node_profiledb,node_admin,node_metricsdb,node_notifications,node_email toneRose
 class node_kafka,node_discovery,node_config,node_user toneIndigo
 ```
+<img width="5105" height="6267" alt="diagram" src="https://github.com/user-attachments/assets/bcdd4509-5759-4dda-a066-bb1a54e88eed" />
